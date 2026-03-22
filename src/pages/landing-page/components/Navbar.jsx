@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Menu, X } from 'lucide-react';
 import { Button } from '@common/components/shadcn/button';
-import logo from '@assets/images/vireonx-logo.png';
+import logo from '@assets/images/logo.png';
 
 const sections = ['features', 'how-it-works', 'pricing', 'faq'];
 

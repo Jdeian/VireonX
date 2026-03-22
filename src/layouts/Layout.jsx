@@ -31,7 +31,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuLabel,
 } from "@common/components/shadcn/dropdown-menu";
-import logo from "@assets/images/vireonx-logo.png";
+
+import logo from "@assets/images/logo.png";
 
 const Layout = ({ children }) => {
   const location = useLocation();
@@ -129,7 +130,7 @@ const Layout = ({ children }) => {
             {/* Logo and navigation */}
             <div className="flex items-center gap-10">
               <Link
-                to="/"
+                to="/dashboard"
                 className="flex items-center gap-2 text-2xl font-black tracking-tighter text-indigo-600"
               >
                 <img src={logo} alt="VireonX" className="h-8 w-auto" />

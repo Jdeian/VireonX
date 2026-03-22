@@ -1,6 +1,6 @@
 import React from 'react';
 import { Instagram, Facebook, Twitter, Linkedin } from 'lucide-react';
-import logo from '@assets/images/vireonx-logo.png';
+import logo from '@assets/images/logo.png';
 
 const Footer = () => {
   return (

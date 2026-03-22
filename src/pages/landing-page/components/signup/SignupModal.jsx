@@ -57,7 +57,7 @@ const SignupModal = ({ isOpen, onClose, onSwitchToLogin, onSuccess }) => {
       const user = await signUpWithEmail({ email, password });
       onSuccess?.(user);
       handleClose();
-      navigate('/dashboard')
+      navigate('/onboarding')
     } catch (err) {
       setError(getFirebaseErrorMessage(err));
     } finally {
@@ -74,7 +74,7 @@ const SignupModal = ({ isOpen, onClose, onSwitchToLogin, onSuccess }) => {
       const user = await continueWithGoogle();
       onSuccess?.(user);
       handleClose();
-      navigate('/dashboard')
+      navigate('/onboarding')
     } catch (err) {
       setError(getFirebaseErrorMessage(err));
     } finally {

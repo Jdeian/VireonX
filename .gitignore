@@ -23,5 +23,12 @@ dist-ssr
 *.sln
 *.sw?
 
-# Ignore .env files
+# Ignore root env
 .env
+# Ignore server env
+server/.env
+# Ignore any other local env variations
+.env.local
+
+# Ignore service account key
+server/serviceAccountKey.json

@@ -2,18 +2,15 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import {
   Calendar as CalendarIcon,
-  Instagram,
-  Facebook,
-  Twitter,
   Image,
   Clock,
-  ThumbsUp,
-  XCircle,
   Brain,
   Loader2,
   CheckCircle2,
   Bot,
   Power,
+  RefreshCw,
+  ChevronDown,
 } from 'lucide-react';
 
 import { Button } from '@common/components/shadcn/button';
@@ -39,145 +36,22 @@ import {
   SelectValue,
 } from '@common/components/shadcn/select';
 
-const platforms = [
-  {
-    id: 'instagram',
-    name: 'Instagram',
-    icon: Instagram,
-    color: 'bg-gradient-to-br from-pink-500 to-purple-600',
-  },
-  {
-    id: 'facebook',
-    name: 'Facebook',
-    icon: Facebook,
-    color: 'bg-blue-600',
-  },
-  {
-    id: 'twitter',
-    name: 'Twitter',
-    icon: Twitter,
-    color: 'bg-sky-500',
-  },
-];
+import { schedulePost } from '@common/services/postService';
+import { generateCaption, saveAutopilotConfig } from '@common/services/aiService';
+
+import ApprovalMode from './ApprovalMode';
+import FullAutoMode from './FullAutoMode';
 
 const nicheSuggestions = [
-  'Fashion',
-  'Technology',
-  'Fitness',
-  'Food',
-  'Travel',
-  'Business',
-  'Health',
-  'Entertainment',
-  'Sports',
-  'Education',
-  'Weather',
+  'Fashion', 'Technology', 'Fitness', 'Food', 'Travel',
+  'Business', 'Health', 'Entertainment', 'Sports', 'Education', 'Weather',
 ];
-
-const hours = Array.from({ length: 12 }, (_, i) => String(i + 1));
-const minutes = Array.from({ length: 60 }, (_, i) =>
-  String(i).padStart(2, '0')
-);
-const periods = ['AM', 'PM'];
 
 const formatDisplayTime = (date) =>
   new Intl.DateTimeFormat(undefined, {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
+    weekday: 'short', month: 'short', day: 'numeric',
+    year: 'numeric', hour: 'numeric', minute: '2-digit',
   }).format(date);
-
-const getPlatformTone = (platformId) => {
-  switch (platformId) {
-    case 'instagram':
-      return {
-        emoji: '✨',
-        hashtags: '#Instagram #ContentCreator',
-      };
-    case 'facebook':
-      return {
-        emoji: '📣',
-        hashtags: '#FacebookPost #Community',
-      };
-    case 'twitter':
-      return {
-        emoji: '⚡',
-        hashtags: '#Trending #SocialMedia',
-      };
-    default:
-      return {
-        emoji: '✨',
-        hashtags: '#Content',
-      };
-  }
-};
-
-const isWeatherTopic = (topic) => {
-  const value = topic.toLowerCase();
-  return (
-    value.includes('weather') ||
-    value.includes('forecast') ||
-    value.includes('rain') ||
-    value.includes('sunny') ||
-    value.includes('temperature') ||
-    value.includes('climate')
-  );
-};
-
-const generatePostContent = (topic, index, platformId) => {
-  const cleanTopic = topic.trim() || 'General';
-  const tone = getPlatformTone(platformId);
-
-  if (isWeatherTopic(cleanTopic)) {
-    const weatherTemplates = [
-      `${tone.emoji} Good morning! Here’s your daily weather update. Expect a bright start to the day with changing conditions later on. Stay prepared and plan smart.`,
-      `${tone.emoji} Weather check-in: today looks like a mix of comfort and change. Bring what you need, stay alert for updates, and make the most of the day.`,
-      `${tone.emoji} Daily forecast post: a fresh weather snapshot to help your audience plan outfits, travel, and activities with confidence.`,
-      `${tone.emoji} Today’s weather update is in. A quick caption, a clear forecast vibe, and a simple reminder to stay ready for the day ahead.`,
-    ];
-
-    return `${weatherTemplates[index % weatherTemplates.length]} ${tone.hashtags} #WeatherUpdate #DailyForecast`;
-  }
-
-  const genericTemplates = [
-    `${tone.emoji} Fresh insight from the world of ${cleanTopic.toLowerCase()}. This post is designed to educate, engage, and keep your audience interested.`,
-    `${tone.emoji} Here’s a smart ${cleanTopic.toLowerCase()} content angle built for consistent engagement and strong platform fit.`,
-    `${tone.emoji} Your audience wants relevant ${cleanTopic.toLowerCase()} content. This post is crafted to feel timely, useful, and shareable.`,
-    `${tone.emoji} A strong ${cleanTopic.toLowerCase()} post should inform or inspire. This one is designed to do both.`,
-    `${tone.emoji} Another AI-generated ${cleanTopic.toLowerCase()} idea tailored to match your posting schedule and platform style.`,
-    `${tone.emoji} Keeping your ${cleanTopic.toLowerCase()} content flow active with a post designed for reach, clarity, and engagement.`,
-  ];
-
-  return `${genericTemplates[index % genericTemplates.length]} ${tone.hashtags} #${cleanTopic.replace(
-    /\s+/g,
-    ''
-  )}`;
-};
-
-const generateImagePrompt = (topic, index, platformId) => {
-  const platformName =
-    platforms.find((p) => p.id === platformId)?.name || 'social media';
-
-  if (isWeatherTopic(topic)) {
-    const weatherPrompts = [
-      `Create an engaging ${platformName} weather graphic for a morning forecast with clean typography, weather icons, a bright sky palette, and a polished modern layout.`,
-      `Create a visually engaging daily weather image for ${platformName} with atmospheric clouds, forecast icons, bold headline space, and a clean news-style composition.`,
-      `Create a social-ready forecast image for ${platformName} with a modern weather dashboard style, temperature emphasis, subtle gradients, and friendly visual appeal.`,
-    ];
-    return weatherPrompts[index % weatherPrompts.length];
-  }
-
-  const genericPrompts = [
-    `Create an engaging promotional image for ${platformName} about ${topic}, visually modern, professional, eye-catching, and optimized for social engagement.`,
-    `Design a high-quality social media visual for ${platformName} focused on ${topic}, with bold composition, clean typography space, and strong visual storytelling.`,
-    `Generate a polished branded content image for ${platformName} around ${topic}, modern aesthetic, audience-friendly, and highly engaging.`,
-  ];
-
-  return genericPrompts[index % genericPrompts.length];
-};
 
 const getStartDateTime = (dateStr, timeStr) => {
   const [year, month, day] = dateStr.split('-').map(Number);
@@ -189,21 +63,11 @@ const addMonthsSafe = (date, monthsToAdd) => {
   const result = new Date(date);
   const originalDay = result.getDate();
   result.setMonth(result.getMonth() + monthsToAdd);
-
-  if (result.getDate() < originalDay) {
-    result.setDate(0);
-  }
-
+  if (result.getDate() < originalDay) result.setDate(0);
   return result;
 };
 
-const buildRecurringSlots = (
-  dateStr,
-  timeStr,
-  countPerPeriod,
-  frequency,
-  previewCount
-) => {
+const buildRecurringSlots = (dateStr, timeStr, countPerPeriod, frequency, previewCount) => {
   const baseStart = getStartDateTime(dateStr, timeStr);
   const slots = [];
 
@@ -215,14 +79,10 @@ const buildRecurringSlots = (
     let cycleDurationMs;
 
     if (frequency === 'day') {
-      cycleStart = new Date(
-        baseStart.getTime() + cycleIndex * 24 * 60 * 60 * 1000
-      );
+      cycleStart = new Date(baseStart.getTime() + cycleIndex * 24 * 60 * 60 * 1000);
       cycleDurationMs = 24 * 60 * 60 * 1000;
     } else if (frequency === 'week') {
-      cycleStart = new Date(
-        baseStart.getTime() + cycleIndex * 7 * 24 * 60 * 60 * 1000
-      );
+      cycleStart = new Date(baseStart.getTime() + cycleIndex * 7 * 24 * 60 * 60 * 1000);
       cycleDurationMs = 7 * 24 * 60 * 60 * 1000;
     } else {
       cycleStart = addMonthsSafe(baseStart, cycleIndex);
@@ -242,43 +102,48 @@ const buildRecurringSlots = (
   return slots;
 };
 
-const convertTo24Hour = (hour, period) => {
-  const parsedHour = Number(hour);
-
-  if (period === 'AM') {
-    return parsedHour === 12 ? 0 : parsedHour;
-  }
-
-  return parsedHour === 12 ? 12 : parsedHour + 12;
-};
-
 const parseDateString = (dateStr) => {
   if (!dateStr) return undefined;
   const [year, month, day] = dateStr.split('-').map(Number);
   return new Date(year, month - 1, day);
 };
 
-const AutoModeTab = () => {
-  const [autoPlatform, setAutoPlatform] = useState('instagram');
+const AutoModeTab = ({
+  userProfile,
+  profileLoading,
+  platforms,
+  toneOptions,
+  postStyleOptions,
+  languageOptions,
+  hours,
+  minutes,
+  periods,
+  convertTo24Hour,
+}) => {
+  const [autoPlatform, setAutoPlatform] = useState('facebook');
   const [selectedNiche, setSelectedNiche] = useState('Fashion');
   const [customNiche, setCustomNiche] = useState('');
-  const [postsPerPeriod, setPostsPerPeriod] = useState(3);
+  const [postsPerPeriod, setPostsPerPeriod] = useState(1);
   const [scheduleFrequency, setScheduleFrequency] = useState('day');
-  const [startDate, setStartDate] = useState(() => {
-    const now = new Date();
-    return format(now, 'yyyy-MM-dd');
-  });
+  const [startDate, setStartDate] = useState(() => format(new Date(), 'yyyy-MM-dd'));
   const [startHour, setStartHour] = useState('8');
   const [startMinute, setStartMinute] = useState('00');
   const [startPeriod, setStartPeriod] = useState('AM');
   const [workflowMode, setWorkflowMode] = useState('approval');
-  const [autoPostingEnabled, setAutoPostingEnabled] = useState(false);
-  const [includeImage, setIncludeImage] = useState(true);
+  const [showPreferences, setShowPreferences] = useState(false);
+
+  // Persisted in localStorage so autopilot survives page reload
+  const [autoPostingEnabled, setAutoPostingEnabled] = useState(() => {
+    return localStorage.getItem('autopilot_enabled') === 'true';
+  });
+
   const [loading, setLoading] = useState(false);
+  const [hasGenerated, setHasGenerated] = useState(false);
   const [pendingSuggestions, setPendingSuggestions] = useState([]);
   const [scheduledSuggestions, setScheduledSuggestions] = useState([]);
-
-  const previewQueueCount = 8;
+  const [scheduleError, setScheduleError] = useState('');
+  const [schedulingId, setSchedulingId] = useState(null);
+  const [autopilotSaving, setAutopilotSaving] = useState(false);
 
   const resolvedNiche = useMemo(
     () => customNiche.trim() || selectedNiche,
@@ -287,7 +152,7 @@ const AutoModeTab = () => {
 
   const selectedAutoPlatformData = useMemo(
     () => platforms.find((p) => p.id === autoPlatform),
-    [autoPlatform]
+    [autoPlatform, platforms]
   );
 
   const selectedStartDate = useMemo(() => parseDateString(startDate), [startDate]);
@@ -305,85 +170,195 @@ const AutoModeTab = () => {
   const startTime24 = useMemo(() => {
     const hour24 = convertTo24Hour(startHour, startPeriod);
     return `${String(hour24).padStart(2, '0')}:${startMinute}`;
-  }, [startHour, startMinute, startPeriod]);
+  }, [startHour, startMinute, startPeriod, convertTo24Hour]);
 
-  const buildAutoPosts = () => {
-    const slots = buildRecurringSlots(
+  // Reset queue when any setting changes so user knows to regenerate
+  useEffect(() => {
+    setHasGenerated(false);
+    setPendingSuggestions([]);
+    setScheduledSuggestions([]);
+    setScheduleError('');
+  }, [autoPlatform, resolvedNiche, postsPerPeriod, scheduleFrequency, startDate, startTime24]);
+
+  // On mount, re-sync autopilot config with backend if it was previously enabled
+  useEffect(() => {
+    if (autoPostingEnabled && workflowMode === 'autopilot') {
+      saveAutopilotConfig({
+        enabled: true,
+        platform: autoPlatform,
+        niche: resolvedNiche,
+        frequency: scheduleFrequency,
+        postsPerPeriod,
+        goal: userProfile?.goal || '',
+        tone: userProfile?.tone || 'professional but friendly',
+        useEmojis: userProfile?.useEmojis ?? false,
+        postStyle: userProfile?.postStyle || '',
+        language: userProfile?.language || 'English',
+      }).catch(console.error);
+    }
+  }, []);
+
+  const buildTimeSlots = () => {
+    return buildRecurringSlots(
       startDate,
       startTime24,
       postsPerPeriod,
       scheduleFrequency,
-      previewQueueCount
+      postsPerPeriod,
     );
-
-    return slots.map((slot, index) => ({
-      id: `${Date.now()}-${index}`,
-      platform: autoPlatform,
-      niche: resolvedNiche,
-      content: generatePostContent(resolvedNiche, index, autoPlatform),
-      imagePrompt: includeImage
-        ? generateImagePrompt(resolvedNiche, index, autoPlatform)
-        : null,
-      scheduledAt: slot.scheduledAt,
-      suggestedTime: slot.displayTime,
-      status: workflowMode === 'autopilot' ? 'auto-managed' : 'pending',
-    }));
   };
 
-  useEffect(() => {
-    if (!resolvedNiche.trim()) return;
+  // Calls OpenAI once per slot using user's onboarding preferences
+  const generateAIPosts = async (slots) => {
+    const posts = [];
 
-    if (workflowMode === 'autopilot' && !autoPostingEnabled) {
-      setLoading(false);
-      setPendingSuggestions([]);
-      setScheduledSuggestions([]);
-      return;
+    for (let i = 0; i < slots.length; i++) {
+      const slot = slots[i];
+
+      try {
+        const content = await generateCaption({
+          platform: autoPlatform,
+          niche: resolvedNiche,
+          goal: userProfile?.goal || '',
+          tone: userProfile?.tone || 'professional but friendly',
+          useEmojis: userProfile?.useEmojis ?? false,
+          postStyle: userProfile?.postStyle || '',
+          language: userProfile?.language || 'English',
+        });
+
+        posts.push({
+          id: `${Date.now()}-${i}`,
+          platform: autoPlatform,
+          niche: resolvedNiche,
+          content,
+          scheduledAt: slot.scheduledAt,
+          suggestedTime: slot.displayTime,
+          status: 'pending',
+        });
+      } catch (err) {
+        console.error(`Failed to generate AI post for slot ${i}:`, err.message);
+      }
     }
 
+    return posts;
+  };
+
+  // Manual trigger — only fires when user clicks Generate or Regenerate
+  const handleGenerate = async () => {
+    if (!resolvedNiche.trim()) return;
+
     setLoading(true);
+    setHasGenerated(false);
     setPendingSuggestions([]);
     setScheduledSuggestions([]);
+    setScheduleError('');
 
-    const timer = setTimeout(() => {
-      const generatedPosts = buildAutoPosts();
+    try {
+      const slots = buildTimeSlots();
+      const generatedPosts = await generateAIPosts(slots);
 
       if (workflowMode === 'autopilot') {
-        setScheduledSuggestions(generatedPosts);
+        const results = [];
+
+        for (const post of generatedPosts) {
+          // Only Facebook is supported until other OAuth flows are built
+          if (post.platform !== 'facebook') {
+            results.push({ ...post, status: 'skipped' });
+            continue;
+          }
+
+          try {
+            await schedulePost({
+              message: post.content,
+              imageUrl: null,
+              scheduledAt: post.scheduledAt,
+              platform: post.platform,
+            });
+            results.push({ ...post, status: 'auto-managed' });
+          } catch (err) {
+            console.error('Autopilot failed to schedule post:', err.message);
+            results.push({ ...post, status: 'failed' });
+          }
+        }
+
+        setScheduledSuggestions(results);
         setPendingSuggestions([]);
       } else {
         setPendingSuggestions(generatedPosts);
         setScheduledSuggestions([]);
       }
 
+      setHasGenerated(true);
+    } catch (err) {
+      console.error('Auto mode generation error:', err);
+      setScheduleError('Failed to generate posts. Please try again.');
+    } finally {
       setLoading(false);
-    }, 900);
+    }
+  };
 
-    return () => clearTimeout(timer);
-  }, [
-    autoPlatform,
-    resolvedNiche,
-    postsPerPeriod,
-    scheduleFrequency,
-    startDate,
-    startTime24,
-    workflowMode,
-    includeImage,
-    autoPostingEnabled,
-  ]);
-
-  const approveSuggestion = (id) => {
+  const approveSuggestion = async (id) => {
     const approvedPost = pendingSuggestions.find((item) => item.id === id);
     if (!approvedPost) return;
 
-    setPendingSuggestions((prev) => prev.filter((item) => item.id !== id));
-    setScheduledSuggestions((prev) => [
-      ...prev,
-      { ...approvedPost, status: 'scheduled' },
-    ]);
+    if (approvedPost.platform !== 'facebook') {
+      setScheduleError(
+        `${approvedPost.platform} is not connected yet. Only Facebook is supported right now.`
+      );
+      return;
+    }
+
+    try {
+      setSchedulingId(id);
+      setScheduleError('');
+
+      await schedulePost({
+        message: approvedPost.content,
+        imageUrl: null,
+        scheduledAt: approvedPost.scheduledAt,
+        platform: approvedPost.platform,
+      });
+
+      setPendingSuggestions((prev) => prev.filter((item) => item.id !== id));
+      setScheduledSuggestions((prev) => [
+        ...prev,
+        { ...approvedPost, status: 'scheduled' },
+      ]);
+    } catch (err) {
+      setScheduleError(err.message || 'Failed to schedule post. Please try again.');
+    } finally {
+      setSchedulingId(null);
+    }
   };
 
   const rejectSuggestion = (id) => {
     setPendingSuggestions((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  const handleAutopilotToggle = async () => {
+    const newState = !autoPostingEnabled;
+    setAutoPostingEnabled(newState);
+
+    // Persist so autopilot state survives page reload
+    localStorage.setItem('autopilot_enabled', String(newState));
+
+    try {
+      setAutopilotSaving(true);
+      await saveAutopilotConfig({
+        enabled: newState,
+        platform: autoPlatform,
+        niche: resolvedNiche,
+        frequency: scheduleFrequency,
+        postsPerPeriod,
+        goal: userProfile?.goal || '',
+        tone: userProfile?.tone || 'professional but friendly',
+      });
+    } catch (err) {
+      console.error('Failed to save autopilot config:', err);
+      setScheduleError('Failed to save autopilot settings. Please try again.');
+    } finally {
+      setAutopilotSaving(false);
+    }
   };
 
   return (
@@ -391,6 +366,7 @@ const AutoModeTab = () => {
       <div className="lg:col-span-2">
         <Card className="border-slate-200 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <CardContent className="p-6">
+
             <div className="mb-6 rounded-xl border border-indigo-100 bg-indigo-50 p-4 dark:border-indigo-500/20 dark:bg-indigo-500/10">
               <div className="flex items-start gap-3">
                 <Bot className="mt-0.5 h-5 w-5 text-indigo-600 dark:text-indigo-400" />
@@ -415,6 +391,7 @@ const AutoModeTab = () => {
                     onClick={() => {
                       setWorkflowMode('approval');
                       setAutoPostingEnabled(false);
+                      localStorage.setItem('autopilot_enabled', 'false');
                     }}
                     className={`h-auto justify-start rounded-xl border p-4 text-left shadow-none ${
                       workflowMode === 'approval'
@@ -452,18 +429,17 @@ const AutoModeTab = () => {
 
               {workflowMode === 'autopilot' && (
                 <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-700">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="wrap-break-word flex flex-col gap-3 sm:flex-row sm:items-stretch sm:flex-wrap sm:justify-between">
                     <div>
                       <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
                         Auto Posting Control
                       </p>
                       <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                        Turn Full Auto Mode on to let AI generate, schedule, and
-                        manage posts automatically.
+                        Turn Full Auto Mode on to let AI generate, schedule, and manage posts automatically.
                       </p>
                     </div>
 
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 sm:self-end">
                       <span
                         className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ${
                           autoPostingEnabled
@@ -473,18 +449,26 @@ const AutoModeTab = () => {
                       >
                         {autoPostingEnabled ? 'ON' : 'OFF'}
                       </span>
-
                       <Button
                         type="button"
-                        onClick={() => setAutoPostingEnabled((prev) => !prev)}
-                        className={`gap-2 text-white ${
+                        onClick={handleAutopilotToggle}
+                        disabled={autopilotSaving}
+                        className={`gap-2 text-white disabled:opacity-50 ${
                           autoPostingEnabled
                             ? 'bg-red-600 hover:bg-red-700'
                             : 'bg-emerald-600 hover:bg-emerald-700'
                         }`}
                       >
-                        <Power size={14} />
-                        {autoPostingEnabled ? 'Turn Off' : 'Start Auto Posting'}
+                        {autopilotSaving ? (
+                          <Loader2 size={14} className="animate-spin" />
+                        ) : (
+                          <Power size={14} />
+                        )}
+                        {autopilotSaving
+                          ? 'Saving...'
+                          : autoPostingEnabled
+                          ? 'Turn Off'
+                          : 'Start Auto Posting'}
                       </Button>
                     </div>
                   </div>
@@ -518,11 +502,11 @@ const AutoModeTab = () => {
                   id="content-niche"
                   type="text"
                   value={customNiche}
+                  maxLength={60}
                   onChange={(e) => setCustomNiche(e.target.value)}
                   placeholder="Example: Weather, Coffee Reviews, Skincare Tips, Anime News, Local Events"
                   className="border-slate-200 py-5 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
                 />
-
                 <div>
                   <p className="mb-2 text-xs text-slate-400 dark:text-slate-500">
                     Quick suggestions:
@@ -547,11 +531,105 @@ const AutoModeTab = () => {
                     ))}
                   </div>
                 </div>
-
                 <p className="text-xs text-slate-500 dark:text-slate-400">
                   Active topic: <span className="font-medium">{resolvedNiche}</span>
                 </p>
               </div>
+
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setShowPreferences((prev) => !prev)}
+                className="gap-2 text-xs text-slate-500 bg-slate-50 hover:bg-slate-100 border-slate-200 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-700"
+              >
+                <ChevronDown
+                  size={13}
+                  className={`transition-transform duration-200 ${showPreferences ? 'rotate-180' : 'rotate-0'}`}
+                />
+                {showPreferences ? 'Hide' : 'Adjust'} AI preferences
+              </Button>
+
+              {showPreferences && (
+                <div className="space-y-3">
+                  <Label>AI Content Preferences</Label>
+                  <p className="text-xs text-slate-400 dark:text-slate-500">
+                    Pre-filled from your onboarding settings. Adjust here to override for this session.
+                  </p>
+                  <div className="grid grid-cols-2 gap-3 rounded-xl border border-slate-200 p-4 dark:border-slate-700">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Tone</Label>
+                      <Select
+                        value={userProfile?.tone || ''}
+                        onValueChange={(v) => setUserProfile((prev) => ({ ...prev, tone: v }))}
+                      >
+                        <SelectTrigger className="h-9 text-xs">
+                          <SelectValue placeholder="Tone" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {toneOptions.map((t) => (
+                            <SelectItem key={t} value={t} className="text-xs">{t}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Post Style</Label>
+                      <Select
+                        value={userProfile?.postStyle || ''}
+                        onValueChange={(v) => setUserProfile((prev) => ({ ...prev, postStyle: v }))}
+                      >
+                        <SelectTrigger className="h-9 text-xs">
+                          <SelectValue placeholder="Style" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {postStyleOptions.map((s) => (
+                            <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Language</Label>
+                      <Select
+                        value={userProfile?.language || 'English'}
+                        onValueChange={(v) => setUserProfile((prev) => ({ ...prev, language: v }))}
+                      >
+                        <SelectTrigger className="h-9 text-xs">
+                          <SelectValue placeholder="Language" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {languageOptions.map((l) => (
+                            <SelectItem key={l} value={l} className="text-xs">{l}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Emojis</Label>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {[{ label: 'Yes', value: true }, { label: 'No', value: false }].map((opt) => (
+                          <button
+                            key={String(opt.value)}
+                            type="button"
+                            onClick={() => setUserProfile((prev) => ({ ...prev, useEmojis: opt.value }))}
+                            className={`rounded-lg border px-2 py-1.5 text-xs font-medium transition ${
+                              (userProfile?.useEmojis ?? false) === opt.value
+                                ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-500 dark:bg-indigo-500/10 dark:text-indigo-300'
+                                : 'border-slate-200 text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:text-slate-300'
+                            }`}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                 <div className="space-y-2">
@@ -573,10 +651,7 @@ const AutoModeTab = () => {
 
                 <div className="space-y-2">
                   <Label>Frequency</Label>
-                  <Select
-                    value={scheduleFrequency}
-                    onValueChange={setScheduleFrequency}
-                  >
+                  <Select value={scheduleFrequency} onValueChange={setScheduleFrequency}>
                     <SelectTrigger className="py-5">
                       <SelectValue placeholder="Select frequency" />
                     </SelectTrigger>
@@ -600,48 +675,33 @@ const AutoModeTab = () => {
                         <span>{displayStartTime}</span>
                       </Button>
                     </PopoverTrigger>
-
                     <PopoverContent className="w-60 p-3" align="start">
                       <div className="space-y-3">
                         <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
                           Select time
                         </p>
-
                         <div className="flex items-center rounded-md border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
-                          <div>
-                            <Select value={startHour} onValueChange={setStartHour}>
-                              <SelectTrigger className="border-0 shadow-none focus:ring-0">
-                                <SelectValue placeholder="Hour" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {hours.map((hour) => (
-                                  <SelectItem key={hour} value={hour}>
-                                    {hour}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-
-                          <span className="mx-3 text-sm font-bold text-slate-500">
-                            :
-                          </span>
-
-                          <div>
-                            <Select value={startMinute} onValueChange={setStartMinute}>
-                              <SelectTrigger className="border-0 shadow-none focus:ring-0">
-                                <SelectValue placeholder="Minute" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {minutes.map((minute) => (
-                                  <SelectItem key={minute} value={minute}>
-                                    {minute}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-
+                          <Select value={startHour} onValueChange={setStartHour}>
+                            <SelectTrigger className="border-0 shadow-none focus:ring-0">
+                              <SelectValue placeholder="Hour" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {hours.map((hour) => (
+                                <SelectItem key={hour} value={hour}>{hour}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <span className="mx-3 text-sm font-bold text-slate-500">:</span>
+                          <Select value={startMinute} onValueChange={setStartMinute}>
+                            <SelectTrigger className="border-0 shadow-none focus:ring-0">
+                              <SelectValue placeholder="Minute" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {minutes.map((minute) => (
+                                <SelectItem key={minute} value={minute}>{minute}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                           <div className="ml-4">
                             <Select value={startPeriod} onValueChange={setStartPeriod}>
                               <SelectTrigger className="border-0 shadow-none focus:ring-0">
@@ -649,9 +709,7 @@ const AutoModeTab = () => {
                               </SelectTrigger>
                               <SelectContent>
                                 {periods.map((period) => (
-                                  <SelectItem key={period} value={period}>
-                                    {period}
-                                  </SelectItem>
+                                  <SelectItem key={period} value={period}>{period}</SelectItem>
                                 ))}
                               </SelectContent>
                             </Select>
@@ -696,20 +754,10 @@ const AutoModeTab = () => {
 
                 <div className="space-y-2">
                   <Label>AI Visual</Label>
-                  <Button
-                    type="button"
-                    onClick={() => setIncludeImage((prev) => !prev)}
-                    className={`flex w-full items-center justify-between border py-5 shadow-none ${
-                      includeImage
-                        ? 'border-emerald-500 bg-emerald-50 text-emerald-700 hover:bg-emerald-50 dark:bg-emerald-500/10 dark:text-emerald-300'
-                        : 'border-slate-200 bg-white text-slate-600 hover:bg-white dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-900'
-                    }`}
-                  >
-                    <span className="text-sm font-medium">
-                      {includeImage ? 'Enabled' : 'Disabled'}
-                    </span>
-                    <Image size={16} />
-                  </Button>
+                  <div className="flex h-10.5 items-center rounded-md border border-slate-200 bg-slate-50 px-3 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
+                    <Image size={14} className="mr-2" />
+                    AI image generation coming soon
+                  </div>
                 </div>
               </div>
             </div>
@@ -723,11 +771,10 @@ const AutoModeTab = () => {
                 ) : (
                   <Brain className="mt-0.5 h-5 w-5 text-indigo-600 dark:text-indigo-400" />
                 )}
-
                 <div>
                   <p className="text-sm font-medium text-slate-800 dark:text-slate-100">
                     {loading
-                      ? 'AI is building your recurring posting queue...'
+                      ? 'AI is generating your posts...'
                       : workflowMode === 'autopilot'
                       ? autoPostingEnabled
                         ? 'Full Auto Mode is active'
@@ -736,151 +783,70 @@ const AutoModeTab = () => {
                   </p>
                   <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                     {loading
-                      ? 'Queue is being regenerated from your latest settings.'
+                      ? `Calling OpenAI to generate ${postsPerPeriod} post(s) for your queue...`
                       : workflowMode === 'autopilot'
                       ? autoPostingEnabled
-                        ? `${postsPerPeriod} post(s) per ${scheduleFrequency}, starting ${displayStartDate} at ${displayStartTime}. AI will fully manage the posting queue for ${selectedAutoPlatformData?.name}.`
-                        : 'Autopilot is currently off. Click "Start Auto Posting" to let AI manage posting automatically.'
-                      : `${postsPerPeriod} post(s) per ${scheduleFrequency}, starting ${displayStartDate} at ${displayStartTime}. AI will wait for your approval before scheduling.`}
+                        ? `${postsPerPeriod} post(s) per ${scheduleFrequency}, starting ${displayStartDate} at ${displayStartTime}. AI is managing the queue for ${selectedAutoPlatformData?.name}.`
+                        : 'Autopilot is off. Click "Start Auto Posting" to activate.'
+                      : hasGenerated
+                      ? `Showing ${pendingSuggestions.length} AI-generated post(s). Approve, reject, or regenerate.`
+                      : `Set your preferences above, then click "Generate Posts" to let AI create your queue.`}
                   </p>
                 </div>
               </div>
             </div>
 
             {workflowMode === 'approval' && (
-              <div>
-                <div className="mb-3 flex items-center justify-between">
-                  <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                    Pending Approval ({pendingSuggestions.length})
-                  </h3>
-                  <span className="text-xs text-slate-400 dark:text-slate-500">
-                    Approve to move posts into scheduled queue
-                  </span>
-                </div>
-
-                {loading ? (
-                  <div className="flex items-center justify-center py-10">
-                    <Loader2 size={24} className="animate-spin text-indigo-600" />
-                    <span className="ml-2 text-sm text-slate-500 dark:text-slate-400">
-                      Generating your automated queue...
-                    </span>
-                  </div>
-                ) : pendingSuggestions.length > 0 ? (
-                  <div className="space-y-3">
-                    {pendingSuggestions.map((suggestion) => {
-                      const platform =
-                        platforms.find((p) => p.id === suggestion.platform) ||
-                        platforms[0];
-
-                      return (
-                        <div
-                          key={suggestion.id}
-                          className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800"
-                        >
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="flex items-start gap-3">
-                              <div
-                                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white ${platform.color}`}
-                              >
-                                <platform.icon size={16} />
-                              </div>
-
-                              <div className="space-y-2">
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-slate-600 dark:bg-slate-700 dark:text-slate-200">
-                                    {platform.name}
-                                  </span>
-                                  <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300">
-                                    {suggestion.niche}
-                                  </span>
-                                </div>
-
-                                <p className="max-w-full whitespace-pre-wrap wrap-break-word text-sm text-slate-800 dark:text-slate-100">
-                                  {suggestion.content}
-                                </p>
-
-                                {suggestion.imagePrompt && (
-                                  <div className="rounded-lg border border-dashed border-slate-300 p-3 dark:border-slate-600">
-                                    <p className="text-xs font-medium text-slate-600 dark:text-slate-300">
-                                      AI image prompt
-                                    </p>
-                                    <p className="mt-1 max-w-full whitespace-pre-wrap wrap-break-word text-xs text-slate-500 dark:text-slate-400">
-                                      {suggestion.imagePrompt}
-                                    </p>
-                                  </div>
-                                )}
-
-                                <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-                                  <Clock size={12} />
-                                  <span>{suggestion.suggestedTime}</span>
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="flex shrink-0 gap-1">
-                              <Button
-                                type="button"
-                                size="icon"
-                                onClick={() => approveSuggestion(suggestion.id)}
-                                className="rounded-full bg-emerald-50 text-emerald-600 shadow-none hover:bg-emerald-100 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20"
-                                title="Approve post"
-                              >
-                                <ThumbsUp size={14} />
-                              </Button>
-
-                              <Button
-                                type="button"
-                                size="icon"
-                                onClick={() => rejectSuggestion(suggestion.id)}
-                                className="rounded-full bg-red-50 text-red-600 shadow-none hover:bg-red-100 dark:bg-red-500/10 dark:hover:bg-red-500/20"
-                                title="Reject post"
-                              >
-                                <XCircle size={14} />
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="rounded-lg border border-dashed border-slate-300 p-8 text-center dark:border-slate-700">
-                    <Brain
-                      size={28}
-                      className="mx-auto text-slate-300 dark:text-slate-600"
-                    />
-                    <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-                      No pending posts right now. Adjust your settings to regenerate
-                      the queue.
-                    </p>
-                  </div>
+              <div className="mb-6">
+                <Button
+                  type="button"
+                  onClick={handleGenerate}
+                  disabled={loading || !resolvedNiche.trim()}
+                  className="w-full gap-2 bg-indigo-600 py-5 text-white hover:bg-indigo-700 disabled:opacity-50"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 size={18} className="animate-spin" />
+                      Generating...
+                    </>
+                  ) : hasGenerated ? (
+                    <>
+                      <RefreshCw size={18} />
+                      Regenerate Posts
+                    </>
+                  ) : (
+                    <>
+                      <Bot size={18} />
+                      Generate Posts
+                    </>
+                  )}
+                </Button>
+                {hasGenerated && (
+                  <p className="mt-2 text-center text-xs text-slate-400 dark:text-slate-500">
+                    Not happy with these? Click Regenerate to get new AI-generated posts.
+                  </p>
                 )}
               </div>
             )}
 
-            {workflowMode === 'autopilot' && autoPostingEnabled && (
-              <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-500/20 dark:bg-emerald-500/10">
-                <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
-                  Autopilot enabled
-                </p>
-                <p className="mt-1 text-sm text-emerald-700/90 dark:text-emerald-200">
-                  AI is directly managing the posting queue. No approve/reject step
-                  is required.
-                </p>
-              </div>
-            )}
+            <ApprovalMode
+              loading={loading}
+              hasGenerated={hasGenerated}
+              scheduleError={scheduleError}
+              pendingSuggestions={pendingSuggestions}
+              schedulingId={schedulingId}
+              approveSuggestion={approveSuggestion}
+              rejectSuggestion={rejectSuggestion}
+              platforms={platforms}
+              visible={workflowMode === 'approval'}
+            />
 
-            {workflowMode === 'autopilot' && !autoPostingEnabled && (
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800">
-                <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                  Autopilot is off
-                </p>
-                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                  Your settings are ready. Turn on Auto Posting to let AI generate
-                  and manage the queue automatically.
-                </p>
-              </div>
-            )}
+            <FullAutoMode
+              autoPostingEnabled={autoPostingEnabled}
+              scheduledSuggestions={scheduledSuggestions}
+              visible={workflowMode === 'autopilot'}
+            />
+
           </CardContent>
         </Card>
       </div>
@@ -889,9 +855,7 @@ const AutoModeTab = () => {
         <Card className="sticky top-24 border-slate-200 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <CardHeader className="pb-3">
             <CardTitle className="text-lg text-slate-800 dark:text-slate-100">
-              {workflowMode === 'autopilot'
-                ? 'Auto-Managed Posts'
-                : 'Scheduled Posts'}
+              {workflowMode === 'autopilot' ? 'Auto-Managed Posts' : 'Scheduled Posts'}
             </CardTitle>
           </CardHeader>
 
@@ -900,16 +864,12 @@ const AutoModeTab = () => {
               <div className="rounded-lg bg-slate-50 p-4 text-center dark:bg-slate-800">
                 <Bot size={24} className="mx-auto text-slate-300 dark:text-slate-600" />
                 <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">
-                  Auto Posting is off. Start it to let AI generate and manage
-                  scheduled posts.
+                  Auto Posting is off. Start it to let AI generate and manage scheduled posts.
                 </p>
               </div>
             ) : scheduledSuggestions.length === 0 ? (
               <div className="rounded-lg bg-slate-50 p-4 text-center dark:bg-slate-800">
-                <CalendarIcon
-                  size={24}
-                  className="mx-auto text-slate-300 dark:text-slate-600"
-                />
+                <CalendarIcon size={24} className="mx-auto text-slate-300 dark:text-slate-600" />
                 <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">
                   {workflowMode === 'autopilot'
                     ? 'AI-managed recurring posts will appear here automatically.'
@@ -920,8 +880,7 @@ const AutoModeTab = () => {
               <div className="space-y-3">
                 {scheduledSuggestions.map((suggestion) => {
                   const platform =
-                    platforms.find((p) => p.id === suggestion.platform) ||
-                    platforms[0];
+                    platforms.find((p) => p.id === suggestion.platform) || platforms[0];
 
                   return (
                     <div
@@ -948,30 +907,23 @@ const AutoModeTab = () => {
                         {suggestion.content}
                       </p>
 
-                      {suggestion.imagePrompt && (
-                        <div className="mt-3 rounded-lg bg-slate-50 p-3 dark:bg-slate-800">
-                          <p className="text-xs font-medium text-slate-600 dark:text-slate-300">
-                            AI image prompt
-                          </p>
-                          <p className="mt-1 max-w-full whitespace-pre-wrap wrap-break-word text-xs text-slate-500 dark:text-slate-400">
-                            {suggestion.imagePrompt}
-                          </p>
-                        </div>
-                      )}
-
                       <div className="mt-3 flex items-center justify-between gap-2">
                         <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300">
                           {suggestion.niche}
                         </span>
                         <span
                           className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                            workflowMode === 'autopilot'
+                            suggestion.status === 'auto-managed'
                               ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200'
+                              : suggestion.status === 'failed'
+                              ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
                               : 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
                           }`}
                         >
-                          {workflowMode === 'autopilot'
+                          {suggestion.status === 'auto-managed'
                             ? 'AI Managed'
+                            : suggestion.status === 'failed'
+                            ? 'Failed'
                             : 'Ready to Post'}
                         </span>
                       </div>

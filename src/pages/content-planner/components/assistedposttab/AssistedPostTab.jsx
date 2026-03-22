@@ -2,14 +2,13 @@ import React, { useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import {
   Calendar as CalendarIcon,
-  Instagram,
-  Facebook,
-  Twitter,
   Image,
-  Sparkles,
+  Bot,
   Send,
   Clock,
   X,
+  Loader2,
+  ChevronDown,
 } from 'lucide-react';
 
 import { Button } from '@common/components/shadcn/button';
@@ -35,35 +34,24 @@ import {
   SelectValue,
 } from '@common/components/shadcn/select';
 
-const platforms = [
-  {
-    id: 'instagram',
-    name: 'Instagram',
-    icon: Instagram,
-    color: 'bg-gradient-to-br from-pink-500 to-purple-600',
-  },
-  {
-    id: 'facebook',
-    name: 'Facebook',
-    icon: Facebook,
-    color: 'bg-blue-600',
-  },
-  {
-    id: 'twitter',
-    name: 'Twitter',
-    icon: Twitter,
-    color: 'bg-sky-500',
-  },
-];
+import { schedulePost } from '@common/services/postService';
+import { generateCaption } from '@common/services/aiService';
 
-const hours = Array.from({ length: 12 }, (_, i) => String(i + 1));
-const minutes = Array.from({ length: 60 }, (_, i) =>
-  String(i).padStart(2, '0')
-);
-const periods = ['AM', 'PM'];
-
-const AssistedPostTab = () => {
-  const [selectedPlatform, setSelectedPlatform] = useState('instagram');
+const AssistedPostTab = ({
+  userProfile,
+  setUserProfile,
+  profileLoading,
+  platforms,
+  toneOptions,
+  postStyleOptions,
+  languageOptions,
+  hours,
+  minutes,
+  periods,
+  convertTo24Hour,
+}) => {
+  const [selectedPlatform, setSelectedPlatform] = useState('facebook');
+  const [showPreferences, setShowPreferences] = useState(false);
   const [postContent, setPostContent] = useState('');
   const [scheduleDate, setScheduleDate] = useState(undefined);
   const [scheduleHour, setScheduleHour] = useState('8');
@@ -71,83 +59,111 @@ const AssistedPostTab = () => {
   const [schedulePeriod, setSchedulePeriod] = useState('AM');
   const [mediaPreview, setMediaPreview] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitStatus, setSubmitStatus] = useState(null);
 
   const selectedPlatformData = useMemo(
     () => platforms.find((p) => p.id === selectedPlatform),
-    [selectedPlatform]
+    [selectedPlatform, platforms]
   );
 
   const charCount = postContent.length;
-
-  const handleContentChange = (e) => {
-    setPostContent(e.target.value);
-  };
+  const handleContentChange = (e) => setPostContent(e.target.value);
 
   const handleMediaUpload = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     const reader = new FileReader();
-    reader.onloadend = () => {
-      setMediaPreview(reader.result);
-    };
+    reader.onloadend = () => setMediaPreview(reader.result);
     reader.readAsDataURL(file);
   };
 
-  const removeMedia = () => {
-    setMediaPreview(null);
-  };
+  const removeMedia = () => setMediaPreview(null);
 
-  const generateAICaption = () => {
+  // Uses onboarding preferences to shape the generated caption
+  const generateAICaption = async () => {
     setIsGenerating(true);
-
-    setTimeout(() => {
-      setPostContent(
-        '✨ Exciting news! Our new collection drops next week. Get ready for something amazing! #ComingSoon #NewArrivals'
-      );
+    console.log('Generating with preferences:', {
+    tone: userProfile?.tone,
+    useEmojis: userProfile?.useEmojis,
+    postStyle: userProfile?.postStyle,
+    language: userProfile?.language,
+  });
+    try {
+      const caption = await generateCaption({
+        platform: selectedPlatform,
+        niche: userProfile?.niche || 'general',
+        goal: userProfile?.goal || '',
+        tone: userProfile?.tone || 'friendly',
+        useEmojis: userProfile?.useEmojis ?? false,
+        postStyle: userProfile?.postStyle || '',
+        language: userProfile?.language || 'English',
+      });
+      setPostContent(caption.slice(0, 280));
+    } catch (err) {
+      console.error('Caption generation failed:', err);
+    } finally {
       setIsGenerating(false);
-    }, 800);
-  };
-
-  const formatDisplayTime = () => {
-    return `${scheduleHour}:${scheduleMinute} ${schedulePeriod}`;
-  };
-
-  const convertTo24Hour = (hour, period) => {
-    let parsedHour = Number(hour);
-
-    if (period === 'AM') {
-      if (parsedHour === 12) return 0;
-      return parsedHour;
     }
-
-    if (parsedHour === 12) return 12;
-    return parsedHour + 12;
   };
+
+  const formatDisplayTime = () =>
+    `${scheduleHour}:${scheduleMinute} ${schedulePeriod}`;
 
   const getCombinedSchedule = () => {
-    if (!scheduleDate || !scheduleHour || !scheduleMinute || !schedulePeriod) {
+    if (!scheduleDate || !scheduleHour || !scheduleMinute || !schedulePeriod)
       return null;
-    }
-
     const combined = new Date(scheduleDate);
     const hour24 = convertTo24Hour(scheduleHour, schedulePeriod);
-
     combined.setHours(hour24, Number(scheduleMinute), 0, 0);
-
     return combined;
   };
 
   const combinedSchedule = getCombinedSchedule();
 
-  const handleSubmitAssisted = (e) => {
+  const handleSubmitAssisted = async (e) => {
     e.preventDefault();
-
     if (!combinedSchedule) return;
 
-    alert(
-      `Post scheduled on ${selectedPlatform} at ${combinedSchedule.toLocaleString()}`
-    );
+    // Only Facebook is supported until other OAuth flows are built
+    if (selectedPlatform !== 'facebook') {
+      setSubmitStatus({
+        type: 'error',
+        message: `${selectedPlatformData?.name} is not connected yet. Only Facebook is supported right now.`,
+      });
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      setSubmitStatus(null);
+
+      await schedulePost({
+        message: postContent,
+        imageUrl: null,
+        scheduledAt: combinedSchedule.toISOString(),
+        platform: selectedPlatform,
+      });
+
+      setSubmitStatus({
+        type: 'success',
+        message: `Post scheduled for ${combinedSchedule.toLocaleString([], {
+          dateStyle: 'medium',
+          timeStyle: 'short',
+        })}`,
+      });
+
+      setPostContent('');
+      setScheduleDate(undefined);
+      setMediaPreview(null);
+    } catch (err) {
+      setSubmitStatus({
+        type: 'error',
+        message: err.message || 'Failed to schedule post. Please try again.',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -180,7 +196,6 @@ const AssistedPostTab = () => {
 
               <div className="space-y-2">
                 <Label>Media (optional)</Label>
-
                 {mediaPreview ? (
                   <div className="relative inline-block">
                     <img
@@ -239,19 +254,114 @@ const AssistedPostTab = () => {
                   className="resize-none border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
                 />
 
-                <div className="flex justify-end">
+                <div className="flex items-center justify-between">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowPreferences((prev) => !prev)}
+                    className="gap-2 text-xs text-slate-500 bg-slate-50 hover:bg-slate-100 border-slate-200 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-700"
+                  >
+                    <ChevronDown
+                      size={13}
+                      className={`transition-transform duration-200 ${showPreferences ? 'rotate-180' : 'rotate-0'}`}
+                    />
+                    {showPreferences ? 'Hide' : 'Adjust'} AI preferences
+                  </Button>
+
                   <Button
                     type="button"
                     variant="ghost"
                     onClick={generateAICaption}
-                    disabled={isGenerating}
-                    className="gap-2 text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
+                    disabled={isGenerating || profileLoading}
+                    className="gap-2 hover:bg-indigo-700 dark:text-indigo-300 dark:hover:text-indigo-200"
                   >
-                    <Sparkles size={16} />
+                    <Bot size={16} />
                     {isGenerating ? 'Generating...' : 'Generate AI caption'}
                   </Button>
                 </div>
               </div>
+
+              {showPreferences && (
+                <div className="space-y-3">
+                  <Label>AI Content Preferences</Label>
+                  <p className="text-xs text-slate-400 dark:text-slate-500">
+                    Pre-filled from your onboarding settings. Adjust here to override for this session.
+                  </p>
+                  <div className="grid grid-cols-2 gap-3 rounded-xl border border-slate-200 p-4 dark:border-slate-700">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Tone</Label>
+                      <Select
+                        value={userProfile?.tone || ''}
+                        onValueChange={(v) => setUserProfile((prev) => ({ ...prev, tone: v }))}
+                      >
+                        <SelectTrigger className="h-9 text-xs">
+                          <SelectValue placeholder="Tone" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {toneOptions.map((t) => (
+                            <SelectItem key={t} value={t} className="text-xs">{t}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Post Style</Label>
+                      <Select
+                        value={userProfile?.postStyle || ''}
+                        onValueChange={(v) => setUserProfile((prev) => ({ ...prev, postStyle: v }))}
+                      >
+                        <SelectTrigger className="h-9 text-xs">
+                          <SelectValue placeholder="Style" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {postStyleOptions.map((s) => (
+                            <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Language</Label>
+                      <Select
+                        value={userProfile?.language || 'English'}
+                        onValueChange={(v) => setUserProfile((prev) => ({ ...prev, language: v }))}
+                      >
+                        <SelectTrigger className="h-9 text-xs">
+                          <SelectValue placeholder="Language" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {languageOptions.map((l) => (
+                            <SelectItem key={l} value={l} className="text-xs">{l}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Emojis</Label>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {[{ label: 'Yes', value: true }, { label: 'No', value: false }].map((opt) => (
+                          <button
+                            key={String(opt.value)}
+                            type="button"
+                            onClick={() => setUserProfile((prev) => ({ ...prev, useEmojis: opt.value }))}
+                            className={`rounded-lg border px-2 py-1.5 text-xs font-medium transition ${
+                              (userProfile?.useEmojis ?? false) === opt.value
+                                ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-500 dark:bg-indigo-500/10 dark:text-indigo-300'
+                                : 'border-slate-200 text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:text-slate-300'
+                            }`}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="space-y-2">
@@ -266,11 +376,7 @@ const AssistedPostTab = () => {
                         }`}
                       >
                         <CalendarIcon className="mr-2 h-4 w-4" />
-                        {scheduleDate ? (
-                          format(scheduleDate, 'PPP')
-                        ) : (
-                          <span>Pick a date</span>
-                        )}
+                        {scheduleDate ? format(scheduleDate, 'PPP') : <span>Pick a date</span>}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="start">
@@ -297,46 +403,33 @@ const AssistedPostTab = () => {
                         <span>{formatDisplayTime()}</span>
                       </Button>
                     </PopoverTrigger>
-
                     <PopoverContent className="w-60 p-3" align="start">
                       <div className="space-y-3">
                         <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
                           Select time
                         </p>
-
                         <div className="flex items-center rounded-md border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
-                          <div>
-                            <Select value={scheduleHour} onValueChange={setScheduleHour}>
-                              <SelectTrigger className="border-0 shadow-none focus:ring-0">
-                                <SelectValue placeholder="Hour" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {hours.map((hour) => (
-                                  <SelectItem key={hour} value={hour}>
-                                    {hour}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-
+                          <Select value={scheduleHour} onValueChange={setScheduleHour}>
+                            <SelectTrigger className="border-0 shadow-none focus:ring-0">
+                              <SelectValue placeholder="Hour" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {hours.map((hour) => (
+                                <SelectItem key={hour} value={hour}>{hour}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                           <span className="text-sm mx-3 font-bold text-slate-500">:</span>
-
-                          <div>
-                            <Select value={scheduleMinute} onValueChange={setScheduleMinute}>
-                              <SelectTrigger className="border-0 shadow-none focus:ring-0">
-                                <SelectValue placeholder="Minute" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {minutes.map((minute) => (
-                                  <SelectItem key={minute} value={minute}>
-                                    {minute}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-
+                          <Select value={scheduleMinute} onValueChange={setScheduleMinute}>
+                            <SelectTrigger className="border-0 shadow-none focus:ring-0">
+                              <SelectValue placeholder="Minute" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {minutes.map((minute) => (
+                                <SelectItem key={minute} value={minute}>{minute}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                           <div className="ml-4">
                             <Select value={schedulePeriod} onValueChange={setSchedulePeriod}>
                               <SelectTrigger className="border-0 shadow-none focus:ring-0">
@@ -344,9 +437,7 @@ const AssistedPostTab = () => {
                               </SelectTrigger>
                               <SelectContent>
                                 {periods.map((period) => (
-                                  <SelectItem key={period} value={period}>
-                                    {period}
-                                  </SelectItem>
+                                  <SelectItem key={period} value={period}>{period}</SelectItem>
                                 ))}
                               </SelectContent>
                             </Select>
@@ -358,13 +449,34 @@ const AssistedPostTab = () => {
                 </div>
               </div>
 
+              {submitStatus && (
+                <div
+                  className={`rounded-2xl border px-4 py-3 text-sm ${
+                    submitStatus.type === 'success'
+                      ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300'
+                      : 'border-red-200 bg-red-50 text-red-600 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300'
+                  }`}
+                >
+                  {submitStatus.message}
+                </div>
+              )}
+
               <Button
                 type="submit"
-                disabled={!postContent.trim() || !scheduleDate}
-                className="w-full gap-2 py-5 bg-indigo-600 text-white hover:bg-indigo-700"
+                disabled={!postContent.trim() || !scheduleDate || isSubmitting}
+                className="w-full gap-2 py-5 bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50"
               >
-                <Send size={18} />
-                Schedule Post
+                {isSubmitting ? (
+                  <>
+                    <Loader2 size={18} className="animate-spin" />
+                    Scheduling...
+                  </>
+                ) : (
+                  <>
+                    <Send size={18} />
+                    Schedule Post
+                  </>
+                )}
               </Button>
             </form>
           </CardContent>
@@ -378,16 +490,13 @@ const AssistedPostTab = () => {
               Preview
             </CardTitle>
           </CardHeader>
-
           <CardContent className="space-y-4">
             <div className="flex items-center gap-2">
               {selectedPlatformData?.icon && (
                 <div
                   className={`flex h-8 w-8 items-center justify-center rounded-full text-white ${selectedPlatformData.color}`}
                 >
-                  {React.createElement(selectedPlatformData.icon, {
-                    size: 18,
-                  })}
+                  {React.createElement(selectedPlatformData.icon, { size: 18 })}
                 </div>
               )}
               <span className="font-medium text-slate-700 dark:text-slate-200">
@@ -411,12 +520,12 @@ const AssistedPostTab = () => {
               <p className="max-w-full wrap-break-word text-sm text-slate-700 dark:text-slate-200">
                 {postContent || 'Your post content will appear here...'}
               </p>
-
               {combinedSchedule && (
                 <div className="mt-3 flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
                   <CalendarIcon size={12} />
                   <span>
-                    Scheduled for {combinedSchedule.toLocaleString([], {
+                    Scheduled for{' '}
+                    {combinedSchedule.toLocaleString([], {
                       dateStyle: 'medium',
                       timeStyle: 'short',
                     })}
