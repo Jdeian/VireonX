@@ -110,6 +110,7 @@ const parseDateString = (dateStr) => {
 
 const AutoModeTab = ({
   userProfile,
+  setUserProfile,
   profileLoading,
   platforms,
   toneOptions,
