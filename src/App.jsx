@@ -10,7 +10,7 @@ import Notifications from './pages/Notifications'
 import Profile from './pages/Profile';
 import Settings from './pages/settings/Settings';
 import Login from './pages/Login';
-import LandingPage from './pages/landing-page/LandingPagee';
+import LandingPage from './pages/landing-page/LandingPage';
 
 function App() {
   useEffect(() => {
