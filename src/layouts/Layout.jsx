@@ -1,5 +1,6 @@
 import * as React from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { signOut } from "firebase/auth";
 import {
   LayoutDashboard,
   CalendarRange,
@@ -33,9 +34,11 @@ import {
 } from "@common/components/shadcn/dropdown-menu";
 
 import logo from "@assets/images/logo.png";
+import { auth } from "@common/services/config";
 
 const Layout = ({ children }) => {
   const location = useLocation();
+  const navigate = useNavigate();
 
   const navItems = [
     { name: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
@@ -81,6 +84,15 @@ const Layout = ({ children }) => {
 
   const toggleNotifications = () => {
     setNotificationsVisible(!notificationsVisible);
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      navigate("/landing-page");
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
   };
 
   React.useEffect(() => {
@@ -221,7 +233,6 @@ const Layout = ({ children }) => {
                 )}
               </div>
 
-              {/* Divider */}
               <div className="mx-1 hidden h-6 w-px bg-slate-200 dark:bg-slate-800 sm:block" />
 
               {/* Avatar dropdown */}
@@ -269,7 +280,10 @@ const Layout = ({ children }) => {
                   <DropdownMenuSeparator className="my-1 bg-slate-200 dark:bg-slate-800" />
 
                   <DropdownMenuItem asChild>
-                    <button className="flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-left text-sm text-slate-700 hover:bg-red-50 hover:text-red-600 focus:bg-red-50 focus:text-red-600 dark:text-slate-200 dark:hover:bg-red-500/10 dark:hover:text-red-400 dark:focus:bg-red-500/10 dark:focus:text-red-400">
+                    <button
+                      onClick={handleLogout}
+                      className="flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-left text-sm text-slate-700 hover:bg-red-50 hover:text-red-600 focus:bg-red-50 focus:text-red-600 dark:text-slate-200 dark:hover:bg-red-500/10 dark:hover:text-red-400 dark:focus:bg-red-500/10 dark:focus:text-red-400"
+                    >
                       <LogOut size={16} />
                       <span>Log out</span>
                     </button>
@@ -281,9 +295,7 @@ const Layout = ({ children }) => {
         </div>
       </header>
 
-      {/* Main */}
       <main className="container mx-auto px-4 pb-10 pt-6 lg:px-8">
-        {/* Breadcrumb */}
         <div className="mb-8">
           <Breadcrumb>
             <BreadcrumbList>
@@ -309,11 +321,9 @@ const Layout = ({ children }) => {
           </Breadcrumb>
         </div>
 
-        {/* Page content */}
         <div className="min-h-screen">{children}</div>
       </main>
 
-      {/* Footer */}
       <footer className="w-full py-2">
         <div className="container mx-auto px-4 text-center">
           <p className="text-sm text-slate-400 dark:text-slate-500">

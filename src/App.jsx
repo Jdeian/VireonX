@@ -2,14 +2,13 @@ import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import Layout from './layouts/Layout';
 import Onboarding from './pages/onboarding/Onboarding';
-import Dashboard from './pages/Dashboard';
+import Dashboard from './pages/dashboard/Dashboard';
 import ContentPlanner from './pages/content-planner/ContentPlanner';
 import ContentCenter from './pages/content-center/ContentCenter';
-import Analytics from './pages/Analytics';
-import Notifications from './pages/Notifications'
-import Profile from './pages/Profile';
+import Analytics from './pages/analytics/Analytics';
+import Notifications from './pages/notifications/Notifications'
+import Profile from './pages/profile/Profile';
 import Settings from './pages/settings/Settings';
-import Login from './pages/Login';
 import LandingPage from './pages/landing-page/LandingPage';
 
 function App() {
@@ -39,8 +38,7 @@ function App() {
     <Router>
       <Routes>
         {/* Routes without Layout */}
-        <Route path="/login" element={<Login />} />
-        <Route path="/landingpage" element={<LandingPage />} />
+        <Route path="/landing-page" element={<LandingPage />} />
 
         {/* Routes with Layout */}
         <Route path="/" element={<Layout> <Dashboard /> </Layout>} />

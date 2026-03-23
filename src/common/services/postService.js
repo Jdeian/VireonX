@@ -39,3 +39,16 @@ export const fetchPosts = async () => {
 
   return data.posts;
 };
+
+export const deletePost = async (postId) => {
+  const headers = await getAuthHeader();
+
+  const res = await fetch(`${API_BASE_URL}/api/posts/${postId}`, {
+    method: "DELETE",
+    headers,
+  });
+
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || "Failed to delete post.");
+  return data;
+};

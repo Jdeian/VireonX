@@ -1,11 +1,7 @@
-import React, { useEffect, useState } from 'react';
-import {
-  Instagram,
-  Facebook,
-  Twitter,
-  Linkedin,
-  Save,
-} from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Loader2 } from 'lucide-react';
+import { auth } from '@common/services/config';
+import { getProfile, updateProfile } from '@common/services/profileService';
 import AccountManagement from './components/AccountManagement';
 import NotificationPreferences from './components/NotificationPreferences';
 import AIPreferences from './components/AIPreferences';
@@ -13,9 +9,9 @@ import ConnectedAccounts from './components/ConnectedAccounts';
 import Appearance from './components/Appearance';
 
 const Settings = () => {
-  const [account, setAccount] = useState({
-    email: 'john@vireonx.com',
-  });
+  const [profileData, setProfileData] = useState(null);
+  const [loading, setLoading]         = useState(true);
+  const [error, setError]             = useState('');
 
   const [notifications, setNotifications] = useState({
     emailNotifications: true,
@@ -26,104 +22,50 @@ const Settings = () => {
     analyticsReport: false,
   });
 
-  const [connectedAccounts, setConnectedAccounts] = useState([
-    { platform: 'Instagram', icon: Instagram, connected: true, username: '@john_ai' },
-    { platform: 'Facebook', icon: Facebook, connected: true, username: 'John Jedric' },
-    { platform: 'Twitter', icon: Twitter, connected: false, username: '' },
-    { platform: 'LinkedIn', icon: Linkedin, connected: false, username: '' },
-  ]);
-
-  const [aiPreferences, setAiPreferences] = useState({
-    defaultTone: 'professional',
-    captionLength: 'medium',
-    autoOptimizeTime: true,
-    includeHashtags: true,
-  });
-
-  useEffect(() => {
-    const savedAccount = localStorage.getItem('vireonx-account');
-    const savedNotifications = localStorage.getItem('vireonx-notifications');
-    const savedAiPreferences = localStorage.getItem('vireonx-ai-preferences');
-    const savedConnectedAccounts = localStorage.getItem('vireonx-connected-accounts');
-
-    if (savedAccount) setAccount(JSON.parse(savedAccount));
-    if (savedNotifications) setNotifications(JSON.parse(savedNotifications));
-    if (savedAiPreferences) setAiPreferences(JSON.parse(savedAiPreferences));
-    if (savedConnectedAccounts) setConnectedAccounts(JSON.parse(savedConnectedAccounts));
+  const loadProfile = useCallback(async (user) => {
+    try {
+      setLoading(true);
+      const profile = await getProfile(user.uid);
+      setProfileData(profile);
+    } catch (err) {
+      console.error('Failed to load settings:', err);
+      setError('Failed to load settings.');
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const handleAccountChange = (e) => {
-    const { name, value } = e.target;
-    setAccount((prev) => ({ ...prev, [name]: value }));
-  };
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      if (user) loadProfile(user);
+    });
+    return () => unsubscribe();
+  }, [loadProfile]);
+
+  // Notifications stay in localStorage — no backend yet
+  useEffect(() => {
+    const saved = localStorage.getItem('vireonx-notifications');
+    if (saved) setNotifications(JSON.parse(saved));
+  }, []);
 
   const handleNotificationChange = (e) => {
     const { name, type, checked, value } = e.target;
-    setNotifications((prev) => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value,
-    }));
+    const updated = { ...notifications, [name]: type === 'checkbox' ? checked : value };
+    setNotifications(updated);
+    localStorage.setItem('vireonx-notifications', JSON.stringify(updated));
   };
 
-  const handleAiChange = (e) => {
-    const { name, type, checked, value } = e.target;
-    setAiPreferences((prev) => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value,
-    }));
-  };
-
-  const toggleAccount = (index) => {
-    setConnectedAccounts((prev) =>
-      prev.map((acc, i) =>
-        i === index ? { ...acc, connected: !acc.connected } : acc
-      )
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 size={24} className="animate-spin text-indigo-600 dark:text-indigo-400" />
+        <span className="ml-2 text-sm text-slate-500 dark:text-slate-400">Loading settings...</span>
+      </div>
     );
-  };
-
-  const handleSave = () => {
-    localStorage.setItem('vireonx-account', JSON.stringify(account));
-    localStorage.setItem('vireonx-notifications', JSON.stringify(notifications));
-    localStorage.setItem('vireonx-ai-preferences', JSON.stringify(aiPreferences));
-    localStorage.setItem('vireonx-connected-accounts', JSON.stringify(connectedAccounts));
-
-    alert('Settings saved successfully!');
-  };
-
-  const handlePasswordChange = () => {
-    alert('Password change functionality – would open a modal or form.');
-  };
-
-  const sectionCardClass = `
-    bg-white dark:bg-slate-900
-    rounded-xl border border-slate-200 dark:border-slate-800
-    shadow-sm overflow-hidden transition-colors
-  `;
-
-  const sectionHeaderClass = `
-    px-6 py-4 border-b border-slate-100 dark:border-slate-800
-    bg-slate-50 dark:bg-slate-950/70
-  `;
-
-  const inputClass = `
-    w-full px-3 py-2 border border-slate-200 dark:border-slate-700
-    rounded-lg bg-white dark:bg-slate-800
-    text-slate-800 dark:text-slate-100
-    focus:outline-none focus:ring-2 focus:ring-indigo-500
-    transition-colors
-  `;
-
-  const switchClass = `
-    w-11 h-6 bg-slate-200 dark:bg-slate-700 rounded-full
-    peer peer-checked:bg-indigo-600
-    after:content-[''] after:absolute after:top-0.5 after:left-0.5
-    after:bg-white after:border after:border-slate-300
-    after:rounded-full after:h-5 after:w-5 after:transition-all
-    peer-checked:after:translate-x-full
-  `;
+  }
 
   return (
-    <div className="min-h-screen space-y-6 transition-colors">
+    <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-100">
           Account & Preferences
@@ -133,58 +75,35 @@ const Settings = () => {
         </p>
       </div>
 
+      {error && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300">
+          {error}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
-          <AccountManagement
-            account={account}
-            onAccountChange={handleAccountChange}
-            onPasswordChange={handlePasswordChange}
-            sectionCardClass={sectionCardClass}
-            sectionHeaderClass={sectionHeaderClass}
-            inputClass={inputClass}
-            switchClass={switchClass}
+          <AccountManagement />
+
+          <AIPreferences
+            profileData={profileData}
+            onSave={async (updates) => {
+              const user = auth.currentUser;
+              if (!user) return;
+              await updateProfile(user.uid, updates);
+              setProfileData((prev) => ({ ...prev, ...updates }));
+            }}
           />
 
           <NotificationPreferences
             notifications={notifications}
             onNotificationChange={handleNotificationChange}
-            sectionCardClass={sectionCardClass}
-            sectionHeaderClass={sectionHeaderClass}
-            inputClass={inputClass}
-            switchClass={switchClass}
-          />
-
-          <AIPreferences
-            aiPreferences={aiPreferences}
-            onAiChange={handleAiChange}
-            sectionCardClass={sectionCardClass}
-            sectionHeaderClass={sectionHeaderClass}
-            inputClass={inputClass}
-            switchClass={switchClass}
           />
         </div>
 
         <div className="space-y-6">
-          <ConnectedAccounts
-            connectedAccounts={connectedAccounts}
-            onToggleAccount={toggleAccount}
-            sectionCardClass={sectionCardClass}
-            sectionHeaderClass={sectionHeaderClass}
-          />
-
-          <Appearance
-            sectionCardClass={sectionCardClass}
-            sectionHeaderClass={sectionHeaderClass}
-            switchClass={switchClass}
-          />
-
-          <button
-            onClick={handleSave}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-6 py-3 text-white shadow-sm transition-colors hover:bg-indigo-700"
-          >
-            <Save size={18} />
-            Save All Settings
-          </button>
+          <ConnectedAccounts profileData={profileData} />
+          <Appearance />
         </div>
       </div>
     </div>
