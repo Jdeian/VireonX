@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   Bell, CalendarDays, CheckCircle, Captions,
   AlertTriangle, CheckCheck, Loader2,
@@ -7,6 +7,8 @@ import { Button } from '@common/components/shadcn/button';
 import { auth } from '@common/services/config';
 import { fetchPosts } from '@common/services/postService';
 import { useEffect, useCallback } from 'react';
+
+import NotificationsSkeleton from './components/NotificationsSkeleton';
 
 const TYPE_CONFIG = {
   scheduled:  { icon: CalendarDays, bg: 'bg-indigo-50 dark:bg-indigo-500/10',  color: 'text-indigo-600 dark:text-indigo-400' },
@@ -136,10 +138,7 @@ const Notifications = () => {
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center py-16">
-            <Loader2 size={22} className="animate-spin text-indigo-600 dark:text-indigo-400" />
-            <span className="ml-2 text-sm text-slate-500 dark:text-slate-400">Loading notifications...</span>
-          </div>
+          <NotificationsSkeleton />
         ) : notifications.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16">
             <Bell size={32} className="text-slate-300 dark:text-slate-600" />

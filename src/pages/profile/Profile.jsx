@@ -9,6 +9,7 @@ import { fetchPosts } from '@common/services/postService';
 import { Button } from '@common/components/shadcn/button';
 import ProfileCard from './components/ProfileCard';
 import ActivityFeed from './components/ActivityFeed';
+import ProfileSkeleton from './components/ProfileSkeleton';
 
 const CONNECTED_PLATFORMS = [
   { id: 'facebook',  label: 'Facebook',  icon: Facebook,  color: 'bg-blue-600' },
@@ -104,14 +105,7 @@ const Profile = () => {
     ? profileData.createdAt.toDate().toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
     : 'Unknown';
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 size={24} className="animate-spin text-indigo-600 dark:text-indigo-400" />
-        <span className="ml-2 text-sm text-slate-500 dark:text-slate-400">Loading profile...</span>
-      </div>
-    );
-  }
+  if (loading) return <ProfileSkeleton />;
 
   return (
     <div className="space-y-6">

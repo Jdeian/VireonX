@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   BarChart3, TrendingUp, Users,
   Instagram, Facebook, Twitter, Linkedin,
-  Loader2, RefreshCw, AlertTriangle, CalendarClock,
+  RefreshCw, AlertTriangle, CalendarClock,
 } from 'lucide-react';
 import { Button } from '@common/components/shadcn/button';
 import { fetchPosts } from '@common/services/postService';
@@ -10,6 +10,7 @@ import { auth } from '@common/services/config';
 import StatCard from './components/StatCard';
 import PostsChart from './components/PostsChart';
 import { platformList } from './components/PlatformBreakdown';
+import AnalyticsSkeleton from './components/AnalyticsSkeleton';
 
 const MOCK_TOP_POSTS = [
   { id: 1, platform: 'Instagram', icon: Instagram, content: 'Summer Sale is here! 🎉 Get 20% off...', engagement: 2345, likes: 1890, comments: 342, shares: 113, date: '2026-03-08' },
@@ -152,10 +153,7 @@ const Analytics = () => {
       )}
 
       {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 size={24} className="animate-spin text-indigo-600 dark:text-indigo-400" />
-          <span className="ml-2 text-sm text-slate-500 dark:text-slate-400">Loading analytics...</span>
-        </div>
+        <AnalyticsSkeleton />
       ) : (
         <>
           {/* Stat cards — update based on active tab / selected platform */}

@@ -8,6 +8,7 @@ import { Button } from '@common/components/shadcn/button';
 import { fetchPosts, deletePost } from '@common/services/postService';
 import PostCard from './components/PostCard';
 import PostRow from './components/PostRow';
+import ContentCenterSkeleton from './components/ContentCenterSkeleton';
 
 const platforms = [
   { id: 'facebook',  name: 'Facebook',  icon: Facebook,  color: 'bg-blue-600' },
@@ -209,10 +210,7 @@ const ContentCenter = () => {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 size={24} className="animate-spin text-indigo-600 dark:text-indigo-400" />
-          <span className="ml-2 text-sm text-slate-500 dark:text-slate-400">Loading posts...</span>
-        </div>
+        <ContentCenterSkeleton />
       ) : filteredPosts.length === 0 ? (
         <EmptyState filter={filter} />
       ) : viewMode === 'grid' ? (

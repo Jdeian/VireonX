@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Loader2 } from 'lucide-react';
 import { auth } from '@common/services/config';
 import { getProfile, updateProfile } from '@common/services/profileService';
 import AccountManagement from './components/AccountManagement';
@@ -7,6 +6,7 @@ import NotificationPreferences from './components/NotificationPreferences';
 import AIPreferences from './components/AIPreferences';
 import ConnectedAccounts from './components/ConnectedAccounts';
 import Appearance from './components/Appearance';
+import SettingsSkeleton from './components/SettingsSkeleton';
 
 const Settings = () => {
   const [profileData, setProfileData] = useState(null);
@@ -55,14 +55,7 @@ const Settings = () => {
     localStorage.setItem('vireonx-notifications', JSON.stringify(updated));
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 size={24} className="animate-spin text-indigo-600 dark:text-indigo-400" />
-        <span className="ml-2 text-sm text-slate-500 dark:text-slate-400">Loading settings...</span>
-      </div>
-    );
-  }
+  if (loading) return <SettingsSkeleton />;
 
   return (
     <div className="space-y-6">

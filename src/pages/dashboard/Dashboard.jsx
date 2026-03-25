@@ -21,6 +21,8 @@ import { auth } from '@common/services/config';
 import { getProfile } from '@common/services/profileService';
 import { fetchPosts } from '@common/services/postService';
 
+import DashboardSkeleton from './components/DashboardSkeleton';
+
 const PLATFORMS = [
   { id: 'facebook',  name: 'Facebook',  icon: Facebook,  color: 'bg-blue-600' },
   { id: 'instagram', name: 'Instagram', icon: Instagram, color: 'bg-gradient-to-br from-pink-500 to-purple-600' },
@@ -119,14 +121,7 @@ const Dashboard = () => {
 
   const autopilotEnabled = localStorage.getItem('autopilot_enabled') === 'true';
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 size={24} className="animate-spin text-indigo-600 dark:text-indigo-400" />
-        <span className="ml-2 text-sm text-slate-500 dark:text-slate-400">Loading dashboard...</span>
-      </div>
-    );
-  }
+  if (loading) return <DashboardSkeleton />;
 
   return (
     <div className="space-y-8">
