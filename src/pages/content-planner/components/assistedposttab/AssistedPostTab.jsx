@@ -36,6 +36,7 @@ import {
 
 import { schedulePost } from '@common/services/postService';
 import { generateCaption } from '@common/services/aiService';
+import { uploadImage } from '@common/services/postService';
 
 const AssistedPostTab = ({
   userProfile,
@@ -53,11 +54,12 @@ const AssistedPostTab = ({
   const [selectedPlatform, setSelectedPlatform] = useState('facebook');
   const [showPreferences, setShowPreferences] = useState(false);
   const [postContent, setPostContent] = useState('');
-  const [scheduleDate, setScheduleDate] = useState(undefined);
+  const [scheduleDate, setScheduleDate] = useState(() => format(new Date(), 'yyyy-MM-dd'));
   const [scheduleHour, setScheduleHour] = useState('8');
   const [scheduleMinute, setScheduleMinute] = useState('00');
   const [schedulePeriod, setSchedulePeriod] = useState('AM');
   const [mediaPreview, setMediaPreview] = useState(null);
+  const [mediaUrl, setMediaUrl] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState(null);
@@ -70,15 +72,26 @@ const AssistedPostTab = ({
   const charCount = postContent.length;
   const handleContentChange = (e) => setPostContent(e.target.value);
 
-  const handleMediaUpload = (e) => {
+  const handleMediaUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
     const reader = new FileReader();
     reader.onloadend = () => setMediaPreview(reader.result);
     reader.readAsDataURL(file);
+
+    try {
+      const url = await uploadImage(file);
+      setMediaUrl(url);
+    } catch (err) {
+      console.error('Image upload failed:', err);
+    }
   };
 
-  const removeMedia = () => setMediaPreview(null);
+  const removeMedia = () => {
+    setMediaPreview(null);
+    setMediaUrl(null);
+  };
 
   // Uses onboarding preferences to shape the generated caption
   const generateAICaption = async () => {
@@ -140,7 +153,7 @@ const AssistedPostTab = ({
 
       await schedulePost({
         message: postContent,
-        imageUrl: null,
+        imageUrl: mediaUrl,
         scheduledAt: combinedSchedule.toISOString(),
         platform: selectedPlatform,
       });

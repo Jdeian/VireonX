@@ -11,6 +11,8 @@ import ProfileCard from './components/ProfileCard';
 import ActivityFeed from './components/ActivityFeed';
 import ProfileSkeleton from './components/ProfileSkeleton';
 
+import { uploadImage } from '@common/services/postService';
+
 const CONNECTED_PLATFORMS = [
   { id: 'facebook',  label: 'Facebook',  icon: Facebook,  color: 'bg-blue-600' },
   { id: 'instagram', label: 'Instagram', icon: Instagram, color: 'bg-gradient-to-br from-pink-500 to-purple-600' },
@@ -27,6 +29,8 @@ const Profile = () => {
   const [saving, setSaving]           = useState(false);
   const [error, setError]             = useState('');
   const [successMsg, setSuccessMsg]   = useState('');
+  const [avatarUrl, setAvatarUrl] = useState(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
 
   const loadData = useCallback(async (user) => {
     try {
@@ -42,6 +46,7 @@ const Profile = () => {
         accountRole: profile?.accountRole || '',
       });
       setPosts(userPosts || []);
+      setAvatarUrl(profile?.avatarUrl || null);
     } catch (err) {
       console.error('Failed to load profile:', err);
       setError('Failed to load profile data.');
@@ -57,6 +62,20 @@ const Profile = () => {
     return () => unsubscribe();
   }, [loadData]);
 
+  const handleAvatarUpload = async (file) => {
+    if (!file) return;
+    try {
+      setAvatarUploading(true);
+      const url = await uploadImage(file);
+      setAvatarUrl(url);
+    } catch (err) {
+      console.error('Avatar upload failed:', err);
+      setError('Failed to upload profile picture.');
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
+
   const handleSave = async () => {
     try {
       setSaving(true);
@@ -67,8 +86,9 @@ const Profile = () => {
         fullName:    formData.fullName.trim(),
         bio:         formData.bio.trim(),
         accountRole: formData.accountRole.trim(),
+        avatarUrl:   avatarUrl || null,
       });
-      setProfileData((prev) => ({ ...prev, ...formData }));
+      setProfileData((prev) => ({ ...prev, ...formData, avatarUrl }));
       setIsEditing(false);
       setSuccessMsg('Profile updated successfully!');
       setTimeout(() => setSuccessMsg(''), 3000);
@@ -86,6 +106,7 @@ const Profile = () => {
       bio:         profileData?.bio         || '',
       accountRole: profileData?.accountRole || '',
     });
+    setAvatarUrl(profileData?.avatarUrl || null);
     setIsEditing(false);
     setError('');
   };
@@ -98,7 +119,7 @@ const Profile = () => {
     { label: 'Total Posts', value: total,     icon: BarChart3,    color: 'text-indigo-600',  bg: 'bg-indigo-50 dark:bg-indigo-500/10' },
     { label: 'Published',   value: published, icon: CheckCircle2, color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-500/10' },
     { label: 'Upcoming',    value: upcoming,  icon: CalendarDays, color: 'text-amber-600',   bg: 'bg-amber-50 dark:bg-amber-500/10' },
-    { label: 'Followers',   value: '12.3K',   icon: Users,        color: 'text-purple-600',  bg: 'bg-purple-50 dark:bg-purple-500/10' },
+    { label: 'Followers',   value: '200',   icon: Users,        color: 'text-purple-600',  bg: 'bg-purple-50 dark:bg-purple-500/10' },
   ];
 
   const joinDate = profileData?.createdAt?.toDate
@@ -170,6 +191,9 @@ const Profile = () => {
             setFormData={setFormData}
             isEditing={isEditing}
             joinDate={joinDate}
+            avatarUrl={avatarUrl} 
+            onAvatarUpload={handleAvatarUpload}
+            avatarUploading={avatarUploading}
           />
         </div>
 

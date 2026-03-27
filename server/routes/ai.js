@@ -1,5 +1,7 @@
 import express from "express";
 import OpenAI from "openai";
+import fs from 'fs';
+import path from 'path';
 import { adminAuth, adminDb } from "../firebaseAdmin.js";
 
 const router = express.Router();
@@ -184,6 +186,54 @@ router.post("/automation/config", async (req, res) => {
   } catch (err) {
     console.error("Autopilot config error:", err);
     return res.status(500).json({ error: "Failed to save autopilot config." });
+  }
+});
+
+// POST /api/ai/generate-image
+router.post('/generate-image', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Unauthorized.' });
+  }
+
+  try {
+    await adminAuth.verifyIdToken(authHeader.split('Bearer ')[1]);
+  } catch {
+    return res.status(401).json({ error: 'Invalid token.' });
+  }
+
+  const { prompt } = req.body;
+  if (!prompt) return res.status(400).json({ error: 'Prompt is required' });
+
+  try {
+    const response = await fetch(
+      'https://router.huggingface.co/hf-inference/models/black-forest-labs/FLUX.1-schnell',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${process.env.HUGGINGFACE_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ inputs: prompt }),
+      }
+    );
+
+
+    if (!response.ok) {
+      return res.status(500).json({ error: 'Image generation failed' });
+    }
+
+    const buffer = await response.arrayBuffer();
+
+    const filename = `ai-${Date.now()}-${Math.round(Math.random() * 1e9)}.jpg`;
+    const uploadsDir = path.resolve('uploads');
+    if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+
+    fs.writeFileSync(path.join(uploadsDir, filename), Buffer.from(buffer));
+
+    res.json({ url: `/uploads/${filename}` });
+  } catch (err) {
+    res.status(500).json({ error: 'Image generation failed' });
   }
 });
 

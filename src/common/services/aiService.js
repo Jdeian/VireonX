@@ -46,3 +46,20 @@ export const saveAutopilotConfig = async (config) => {
 
   return data;
 };
+
+export const generateImage = async ({ prompt }) => {
+  const headers = await getAuthHeader();
+
+  const res = await fetch(`${API_BASE_URL}/api/ai/generate-image`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...headers,
+    },
+    body: JSON.stringify({ prompt }),
+  });
+
+  if (!res.ok) throw new Error('Image generation failed');
+  const data = await res.json();
+  return data.url;
+};

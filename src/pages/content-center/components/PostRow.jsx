@@ -29,6 +29,13 @@ const PostRow = ({ post, platforms, statusConfig, onDelete, onCopy, copiedId, on
           <p className={`text-sm text-slate-700 dark:text-slate-300 ${isExpanded ? 'whitespace-pre-wrap' : 'truncate'}`}>
             {post.message}
           </p>
+          {post.imageUrl && isExpanded && (
+            <img
+              src={`${import.meta.env.VITE_API_BASE_URL}${post.imageUrl}`}
+              alt="Post media"
+              className="mt-2 h-40 w-full rounded-lg object-cover border border-slate-100 dark:border-slate-800"
+            />
+          )}
           {post.status === 'failed' && post.error && (
             <p className="mt-0.5 truncate text-xs text-red-500 dark:text-red-400">{post.error}</p>
           )}
@@ -60,14 +67,14 @@ const PostRow = ({ post, platforms, statusConfig, onDelete, onCopy, copiedId, on
           )}
           <button
             onClick={() => onCopy(post.id, post.message)}
-            className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300"
+            className="cursor-pointer rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300"
             title="Copy caption"
           >
             {isCopied ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
           </button>
           <button
             onClick={() => onDelete(post.id)}
-            className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10"
+            className="cursor-pointer rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10"
             title="Delete post"
           >
             <Trash2 size={14} />

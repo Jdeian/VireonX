@@ -1,4 +1,3 @@
-import React from 'react';
 import { ChartNoAxesGantt, Mail, Calendar, Camera, Briefcase, Loader2 } from 'lucide-react';
 import { auth } from '@common/services/config';
 import { Input } from '@common/components/shadcn/input';
@@ -12,7 +11,7 @@ const ROLE_SUGGESTIONS = [
   'Real Estate', 'Agency', 'Online Store',
 ];
 
-const ProfileCard = ({ profileData, formData, setFormData, isEditing, joinDate }) => {
+const ProfileCard = ({ profileData, formData, setFormData, isEditing, joinDate, avatarUrl, avatarUploading, onAvatarUpload }) => {
   const initials = profileData?.fullName
     ?.split(' ').map((n) => n[0]).join('').slice(0, 2) || '?';
 
@@ -22,14 +21,37 @@ const ProfileCard = ({ profileData, formData, setFormData, isEditing, joinDate }
       <div className="-mt-12 px-6 pb-6">
         <div className="relative inline-block">
           <div className="h-24 w-24 overflow-hidden rounded-full border-4 border-white bg-white shadow-md dark:border-slate-900 dark:bg-slate-800">
-            <div className="flex h-full w-full items-center justify-center bg-indigo-100 text-2xl font-bold text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300">
-              {initials}
-            </div>
+            {avatarUrl ? (
+              <img
+                src={`${import.meta.env.VITE_API_BASE_URL}${avatarUrl}`}
+                alt="Profile"
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center bg-indigo-100 text-2xl font-bold text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300">
+                {initials}
+              </div>
+            )}
           </div>
+
           {isEditing && (
-            <button className="absolute bottom-0 right-0 rounded-full border border-slate-200 bg-white p-1.5 shadow-sm transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800">
-              <Camera size={14} className="text-slate-600 dark:text-slate-300" />
-            </button>
+            <label className="absolute bottom-0 right-0 cursor-pointer rounded-full border border-slate-200 bg-white p-1.5 shadow-sm transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800">
+              {avatarUploading ? (
+                <Loader2 size={14} className="animate-spin text-indigo-600" />
+              ) : (
+                <Camera size={14} className="text-slate-600 dark:text-slate-300" />
+              )}
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                disabled={avatarUploading}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) onAvatarUpload(file);
+                }}
+              />
+            </label>
           )}
         </div>
 

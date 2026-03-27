@@ -8,7 +8,7 @@ import facebookAuthRoutes from "./routes/facebookAuth.js";
 import facebookCallbackRoutes from "./routes/facebookCallback.js";
 import postRoutes from "./routes/posts.js";
 import { runScheduler } from "./scheduler.js";
-
+import uploadRouter from './routes/upload.js';
 import aiRoutes from "./routes/ai.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -21,10 +21,13 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+app.use("/uploads", express.static(path.resolve("uploads")));
+
 app.use("/auth/facebook", facebookAuthRoutes);
 app.use("/auth/facebook", facebookCallbackRoutes);
 app.use("/api/posts", postRoutes);
 app.use("/api/ai", aiRoutes);
+app.use('/api/upload', uploadRouter);
 
 // Run scheduler every 60 seconds
 setInterval(runScheduler, 60 * 1000);

@@ -4,6 +4,16 @@ import {
   RefreshCw, Loader2, CalendarClock, Send,
   CheckCircle2, XCircle, LayoutList, LayoutGrid,
 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@common/components/shadcn/alert-dialog';
 import { Button } from '@common/components/shadcn/button';
 import { fetchPosts, deletePost } from '@common/services/postService';
 import PostCard from './components/PostCard';
@@ -56,6 +66,7 @@ const ContentCenter = () => {
   const [viewMode, setViewMode] = useState('list');
   const [copiedId, setCopiedId] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
+  const [deleteTargetId, setDeleteTargetId] = useState(null);
   const [error, setError] = useState('');
 
   // Fetches all posts for the current user from Firestore via backend
@@ -93,13 +104,19 @@ const ContentCenter = () => {
     failed:    posts.filter((p) => p.status === 'failed').length,
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = (id) => {
+    setDeleteTargetId(id);
+  };
+
+  const confirmDelete = async () => {
     try {
-      await deletePost(id);
-      setPosts((prev) => prev.filter((p) => p.id !== id));
+      await deletePost(deleteTargetId);
+      setPosts((prev) => prev.filter((p) => p.id !== deleteTargetId));
     } catch (err) {
       console.error('Failed to delete post:', err);
       setError('Failed to delete post. Please try again.');
+    } finally {
+      setDeleteTargetId(null);
     }
   };
 
@@ -226,6 +243,26 @@ const ContentCenter = () => {
           ))}
         </div>
       )}
+
+      <AlertDialog open={!!deleteTargetId} onOpenChange={(open) => { if (!open) setDeleteTargetId(null); }}>
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this post?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the post. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-red-600 text-white hover:bg-red-700"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

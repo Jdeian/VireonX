@@ -311,9 +311,9 @@ const Dashboard = () => {
             </p>
             <Link
               to="/content-planner"
-              className="mt-2 flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-700 dark:text-indigo-400"
+              className="mt-2 flex items-center text-xs text-indigo-600 hover:text-indigo-700 dark:text-indigo-400"
             >
-              Go to Content Planner <ArrowRight size={12} />
+              Go to Content Planner <ChevronRight className="w-4 h-4"/>
             </Link>
           </div>
 

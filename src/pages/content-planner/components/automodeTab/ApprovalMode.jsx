@@ -70,6 +70,13 @@ const ApprovalMode = ({
                       <p className="max-w-full whitespace-pre-wrap wrap-break-word text-sm text-slate-800 dark:text-slate-100">
                         {suggestion.content}
                       </p>
+                      {suggestion.imageUrl && (
+                        <img
+                          src={`${import.meta.env.VITE_API_BASE_URL}${suggestion.imageUrl}`}
+                          alt="AI generated"
+                          className="mt-2 h-40 w-full rounded-lg object-cover border border-slate-200 dark:border-slate-700"
+                        />
+                      )}
                       <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
                         <Clock size={12} />
                         <span>{suggestion.suggestedTime}</span>

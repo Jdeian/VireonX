@@ -37,7 +37,7 @@ import {
 } from '@common/components/shadcn/select';
 
 import { schedulePost } from '@common/services/postService';
-import { generateCaption, saveAutopilotConfig } from '@common/services/aiService';
+import { generateCaption, saveAutopilotConfig, generateImage } from '@common/services/aiService';
 
 import ApprovalMode from './ApprovalMode';
 import FullAutoMode from './FullAutoMode';
@@ -132,6 +132,11 @@ const AutoModeTab = ({
   const [startPeriod, setStartPeriod] = useState('AM');
   const [workflowMode, setWorkflowMode] = useState('approval');
   const [showPreferences, setShowPreferences] = useState(false);
+  const [generateImages, setGenerateImages] = useState(false);
+
+  const buildImagePrompt = (niche, caption) => {
+    return `Social media post image for ${niche} niche. ${caption.slice(0, 100)}. High quality, vibrant, professional photography style, no text.`;
+  };
 
   // Persisted in localStorage so autopilot survives page reload
   const [autoPostingEnabled, setAutoPostingEnabled] = useState(() => {
@@ -227,11 +232,23 @@ const AutoModeTab = ({
           language: userProfile?.language || 'English',
         });
 
+        let imageUrl = null;
+        if (generateImages) {
+          try {
+            imageUrl = await generateImage({
+              prompt: buildImagePrompt(resolvedNiche, content),
+            });
+          } catch (err) {
+            console.warn('Image generation failed, continuing without image:', err.message);
+          }
+        }
+
         posts.push({
           id: `${Date.now()}-${i}`,
           platform: autoPlatform,
           niche: resolvedNiche,
           content,
+          imageUrl,
           scheduledAt: slot.scheduledAt,
           suggestedTime: slot.displayTime,
           status: 'pending',
@@ -271,7 +288,7 @@ const AutoModeTab = ({
           try {
             await schedulePost({
               message: post.content,
-              imageUrl: null,
+              imageUrl: post.imageUrl || null,
               scheduledAt: post.scheduledAt,
               platform: post.platform,
             });
@@ -315,7 +332,7 @@ const AutoModeTab = ({
 
       await schedulePost({
         message: approvedPost.content,
-        imageUrl: null,
+        imageUrl: approvedPost.imageUrl || null,
         scheduledAt: approvedPost.scheduledAt,
         platform: approvedPost.platform,
       });
@@ -354,6 +371,9 @@ const AutoModeTab = ({
         goal: userProfile?.goal || '',
         tone: userProfile?.tone || 'professional but friendly',
       });
+      if (newState) {
+        await handleGenerate();
+      }
     } catch (err) {
       console.error('Failed to save autopilot config:', err);
       setScheduleError('Failed to save autopilot settings. Please try again.');
@@ -754,11 +774,33 @@ const AutoModeTab = ({
                 </div>
 
                 <div className="space-y-2">
-                  <Label>AI Visual</Label>
-                  <div className="flex h-10.5 items-center rounded-md border border-slate-200 bg-slate-50 px-3 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
-                    <Image size={14} className="mr-2" />
-                    AI image generation coming soon
-                  </div>
+                  <Label>AI Image Generation</Label>
+                  <button
+                    type="button"
+                    onClick={() => setGenerateImages((prev) => !prev)}
+                    className={`flex w-full items-center justify-between rounded-md border px-3 py-2.5 text-sm transition-colors ${
+                      generateImages
+                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-400'
+                        : 'border-slate-200 bg-slate-50 text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Image size={14} />
+                      <span>{generateImages ? 'AI image generation on' : 'AI image generation off'}</span>
+                    </div>
+                    <span className={`rounded-full px-6 py-1 text-xs font-medium cursor-pointer ${
+                      generateImages
+                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300'
+                        : 'bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-400'
+                    }`}>
+                      {generateImages ? 'ON' : 'OFF'}
+                    </span>
+                  </button>
+                  {generateImages && (
+                    <p className="text-xs text-slate-400 dark:text-slate-500">
+                      Each post will include an AI-generated image. Generation takes 10–20s per post.
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -784,7 +826,7 @@ const AutoModeTab = ({
                   </p>
                   <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                     {loading
-                      ? `Calling OpenAI to generate ${postsPerPeriod} post(s) for your queue...`
+                      ? `Generating ${postsPerPeriod} post(s)${generateImages ? ' with AI images' : ''}... this may take a moment.`
                       : workflowMode === 'autopilot'
                       ? autoPostingEnabled
                         ? `${postsPerPeriod} post(s) per ${scheduleFrequency}, starting ${displayStartDate} at ${displayStartTime}. AI is managing the queue for ${selectedAutoPlatformData?.name}.`
@@ -827,6 +869,29 @@ const AutoModeTab = ({
                     Not happy with these? Click Regenerate to get new AI-generated posts.
                   </p>
                 )}
+              </div>
+            )}
+
+            {workflowMode === 'autopilot' && autoPostingEnabled && (
+              <div className="mb-6">
+                <Button
+                  type="button"
+                  onClick={handleGenerate}
+                  disabled={loading || !resolvedNiche.trim()}
+                  className="w-full gap-2 bg-emerald-600 py-5 text-white hover:bg-emerald-700 disabled:opacity-50"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 size={18} className="animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw size={18} />
+                      Generate & Schedule Now
+                    </>
+                  )}
+                </Button>
               </div>
             )}
 
@@ -904,7 +969,15 @@ const AutoModeTab = ({
                         </div>
                       </div>
 
-                      <p className="max-w-full whitespace-pre-wrap wrap-break-word text-sm text-slate-700 dark:text-slate-200">
+                      {suggestion.imageUrl && (
+                        <img
+                          src={`${import.meta.env.VITE_API_BASE_URL}${suggestion.imageUrl}`}
+                          alt="AI generated"
+                          className="mt-2 h-40 w-full rounded-lg object-cover border border-slate-200 dark:border-slate-700"
+                        />
+                      )}
+
+                      <p className="max-w-full whitespace-pre-wrap wrap-break-word mt-5 text-sm text-slate-700 dark:text-slate-200">
                         {suggestion.content}
                       </p>
 

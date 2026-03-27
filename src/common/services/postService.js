@@ -52,3 +52,37 @@ export const deletePost = async (postId) => {
   if (!res.ok) throw new Error(data.error || "Failed to delete post.");
   return data;
 };
+
+export const uploadImage = async (file) => {
+  const user = auth.currentUser;
+  if (!user) throw new Error('Not authenticated.');
+  const token = await user.getIdToken();
+
+  const formData = new FormData();
+  formData.append('image', file);
+
+  const res = await fetch(`${API_BASE_URL}/api/upload`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: formData,
+  });
+
+  if (!res.ok) throw new Error('Image upload failed');
+  const data = await res.json();
+  return data.url;
+};
+
+export const deleteImage = async (filename) => {
+  const user = auth.currentUser;
+  if (!user) throw new Error('Not authenticated.');
+  const token = await user.getIdToken();
+
+  await fetch(`${API_BASE_URL}/api/upload`, {
+    method: 'DELETE',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ filename }),
+  });
+};

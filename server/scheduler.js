@@ -70,12 +70,14 @@ export const runScheduler = async () => {
       try {
         // Mark as processing immediately to prevent double-publish
         await ref.update({ status: "processing" });
+        console.log(`Scheduler: post ${docSnap.id} imageUrl:`, post.imageUrl);
+
 
         await publishToFacebook(
           post.pageId,
           post.pageToken,
           post.message,
-          post.imageUrl
+          post.imageUrl ? `${process.env.SERVER_BASE_URL}${post.imageUrl}` : null
         );
 
         await ref.update({

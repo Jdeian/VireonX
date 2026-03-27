@@ -32,3 +32,6 @@ server/.env
 
 # Ignore service account key
 server/serviceAccountKey.json
+
+# Ignore media files
+server/uploads/

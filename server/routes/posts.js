@@ -146,17 +146,28 @@ router.post("/process-pending", async (req, res) => {
       try {
         await ref.update({ status: "processing" });
 
-        const fbRes = await fetch(
-          `https://graph.facebook.com/v23.0/${post.pageId}/feed`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              message: post.message,
-              access_token: post.pageToken,
-            }),
-          }
-        );
+        let fbEndpoint = `https://graph.facebook.com/v23.0/${post.pageId}/feed`;
+        let fbBody = {
+          message: post.message,
+          access_token: post.pageToken,
+        };
+
+        // If post has an image, use the photos endpoint instead
+        if (post.imageUrl) {
+          const fullImageUrl = `${process.env.SERVER_BASE_URL}${post.imageUrl}`;
+          fbEndpoint = `https://graph.facebook.com/v23.0/${post.pageId}/photos`;
+          fbBody = {
+            caption: post.message,
+            url: fullImageUrl,
+            access_token: post.pageToken,
+          };
+        }
+
+        const fbRes = await fetch(fbEndpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(fbBody),
+        });
 
         const fbData = await fbRes.json();
 
@@ -179,6 +190,41 @@ router.post("/process-pending", async (req, res) => {
   } catch (err) {
     console.error("Process pending error:", err);
     return res.status(500).json({ error: "Failed to process pending posts." });
+  }
+});
+
+// DELETE /api/posts/:id
+router.delete("/:id", async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith("Bearer ")) {
+      return res.status(401).json({ error: "Unauthorized." });
+    }
+
+    const idToken = authHeader.split("Bearer ")[1];
+    const decoded = await adminAuth.verifyIdToken(idToken);
+    const uid = decoded.uid;
+
+    const { id } = req.params;
+
+    const docRef = adminDb.collection("scheduledPosts").doc(id);
+    const docSnap = await docRef.get();
+
+    if (!docSnap.exists) {
+      return res.status(404).json({ error: "Post not found." });
+    }
+
+    // Ownership check — users can only delete their own posts
+    if (docSnap.data().uid !== uid) {
+      return res.status(403).json({ error: "Forbidden." });
+    }
+
+    await docRef.delete();
+
+    return res.json({ success: true });
+  } catch (err) {
+    console.error("Delete post error:", err);
+    return res.status(500).json({ error: "Failed to delete post." });
   }
 });
 

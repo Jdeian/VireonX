@@ -1,4 +1,4 @@
-import * as React from "react";
+import { useState, useEffect, useRef, Fragment } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { signOut } from "firebase/auth";
 import {
@@ -15,6 +15,7 @@ import {
   AlertTriangle,
   FileText,
   CheckCircle,
+  Loader2,
 } from "lucide-react";
 import {
   Breadcrumb,
@@ -35,6 +36,9 @@ import {
 
 import logo from "@assets/images/logo.png";
 import { auth } from "@common/services/config";
+
+import { getProfile } from '@common/services/profileService';
+import { fetchPosts } from '@common/services/postService';
 
 const Layout = ({ children }) => {
   const location = useLocation();
@@ -73,14 +77,53 @@ const Layout = ({ children }) => {
     return items;
   };
 
-  const [notificationsVisible, setNotificationsVisible] = React.useState(false);
-  const [notifications] = React.useState([
-    "Your post 'Summer Sale' is scheduled for tomorrow at 10 AM",
-    "AI caption generation completed for Instagram post",
-    "Analytics report for last week is ready",
-    "Facebook post published successfully",
-  ]);
-  const notificationRef = React.useRef(null);
+  const [userName, setUserName] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState(null);
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [notificationsVisible, setNotificationsVisible] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  
+
+  const buildNotificationsFromPosts = (posts) => {
+  return [...posts]
+    .sort((a, b) => new Date(b.scheduledAt) - new Date(a.scheduledAt))
+    .slice(0, 4)
+    .map((p) => {
+      const date = new Date(p.scheduledAt);
+      const platform = p.platform?.charAt(0).toUpperCase() + p.platform?.slice(1);
+      const preview = p.message?.slice(0, 40) + (p.message?.length > 40 ? '...' : '');
+
+      if (p.status === 'published') return `${platform} post published successfully — "${preview}"`;
+      if (p.status === 'failed')    return `${platform} post failed to publish — "${preview}"`;
+      if (p.status === 'processing') return `${platform} post is being processed — "${preview}"`;
+      return `${platform} post scheduled for ${date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} — "${preview}"`;
+    });
+  };
+
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      if (!user) {
+        setProfileLoading(false);
+        return;
+      }
+      try {
+        const [profile, posts] = await Promise.all([
+          getProfile(user.uid),
+          fetchPosts(),
+        ]);
+        setUserName(profile?.fullName || user.displayName || user.email?.split('@')[0] || 'User');
+        setAvatarUrl(profile?.avatarUrl || null);
+        setNotifications(buildNotificationsFromPosts(posts));
+      } catch (err) {
+        console.error('Failed to load layout data:', err);
+      } finally {
+        setProfileLoading(false);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const notificationRef = useRef(null);
 
   const toggleNotifications = () => {
     setNotificationsVisible(!notificationsVisible);
@@ -95,7 +138,7 @@ const Layout = ({ children }) => {
     }
   };
 
-  React.useEffect(() => {
+  useEffect(() => {
     const handleClickOutside = (event) => {
       if (
         notificationRef.current &&
@@ -239,12 +282,28 @@ const Layout = ({ children }) => {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button className="flex items-center gap-2 rounded-full py-1 pl-1 pr-2 transition-colors hover:bg-slate-100 dark:hover:bg-slate-800">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-linear-to-br from-indigo-500 to-indigo-700 text-white shadow-sm">
-                      <User size={16} />
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-linear-to-br from-indigo-500 to-indigo-700 text-white shadow-sm overflow-hidden">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-linear-to-br from-indigo-500 to-indigo-700 text-white shadow-sm overflow-hidden">
+                        {profileLoading ? (
+                          <Loader2 size={14} className="animate-spin" />
+                        ) : avatarUrl ? (
+                          <img
+                            src={`${import.meta.env.VITE_API_BASE_URL}${avatarUrl}`}
+                            alt="Avatar"
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <User size={16} />
+                        )}
                     </div>
-                    <span className="hidden text-sm font-medium text-slate-700 dark:text-slate-200 sm:block">
-                      John Jedric Belita
-                    </span>
+                    </div>
+                    {profileLoading ? (
+                      <span className="hidden h-4 w-24 animate-pulse rounded bg-slate-200 dark:bg-slate-700 sm:block" />
+                    ) : (
+                      <span className="hidden text-sm font-medium text-slate-700 dark:text-slate-200 sm:block">
+                        {userName}
+                      </span>
+                    )}
                     <ChevronDown size={16} className="text-slate-400 dark:text-slate-500" />
                   </button>
                 </DropdownMenuTrigger>
@@ -300,7 +359,7 @@ const Layout = ({ children }) => {
           <Breadcrumb>
             <BreadcrumbList>
               {getBreadcrumbItems().map((item, index) => (
-                <React.Fragment key={item.label + index}>
+                <Fragment key={item.label + index}>
                   <BreadcrumbItem>
                     <BreadcrumbLink asChild>
                       <Link
@@ -315,7 +374,7 @@ const Layout = ({ children }) => {
                   {index < getBreadcrumbItems().length - 1 && (
                     <BreadcrumbSeparator className="text-slate-400 dark:text-slate-600" />
                   )}
-                </React.Fragment>
+                </Fragment>
               ))}
             </BreadcrumbList>
           </Breadcrumb>

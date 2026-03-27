@@ -14,7 +14,7 @@ import AnalyticsSkeleton from './components/AnalyticsSkeleton';
 
 const MOCK_TOP_POSTS = [
   { id: 1, platform: 'Instagram', icon: Instagram, content: 'Summer Sale is here! 🎉 Get 20% off...', engagement: 2345, likes: 1890, comments: 342, shares: 113, date: '2026-03-08' },
-  { id: 2, platform: 'Facebook',  icon: Facebook,  content: 'Behind the scenes of our latest photoshoot...', engagement: 1876, likes: 1456, comments: 298, shares: 122, date: '2026-03-07' },
+  { id: 2, platform: 'Facebook',  icon: Facebook,  content: 'Behind the scenes of our latest photoshoot...', engagement: 1, likes: 1, comments: 298, shares: 122, date: '2026-03-07' },
   { id: 3, platform: 'Twitter',   icon: Twitter,   content: 'We just hit 10K followers! Thank you all 🙏', engagement: 1543, likes: 1321, comments: 156, shares: 66,  date: '2026-03-06' },
   { id: 4, platform: 'Linkedin', icon: Linkedin, content: 'New product teaser – can you guess what it is?', engagement: 1234, likes: 987,  comments: 201, shares: 46,  date: '2026-03-05' },
 ];
@@ -64,8 +64,8 @@ const Analytics = () => {
     const published = posts.filter((p) => p.status === 'published').length;
     const upcoming  = posts.filter((p) => p.status === 'pending' || p.status === 'processing').length;
     return [
-      { label: 'Total Engagement', value: '24.5K',    icon: TrendingUp,    color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-500/10' },
-      { label: 'Followers',        value: '12.3K',    icon: Users,         color: 'text-purple-600',  bg: 'bg-purple-50 dark:bg-purple-500/10' },
+      { label: 'Total Engagement', value: '1K',    icon: TrendingUp,    color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-500/10' },
+      { label: 'Followers',        value: '200',    icon: Users,         color: 'text-purple-600',  bg: 'bg-purple-50 dark:bg-purple-500/10' },
       { label: 'Posts Published',  value: published,  icon: BarChart3,     color: 'text-amber-600',   bg: 'bg-amber-50 dark:bg-amber-500/10' },
       { label: 'Upcoming Posts',   value: upcoming,   icon: CalendarClock, color: 'text-indigo-600',  bg: 'bg-indigo-50 dark:bg-indigo-500/10' },
     ];
